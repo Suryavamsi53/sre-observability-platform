@@ -1,0 +1,2 @@
+{"level":"fatal","ts":"2026-03-25T12:13:39.918+0530","caller":"collector/main.go:69","msg":"Failed to listen","error":"listen tcp :50051: bind: address already in use","stacktrace":"main.main\n\t/home/suryavamsivaggu/Downloads/Infra/sre-platform/services/collector/main.go:69\nruntime.main\n\t/usr/lib/golang/src/runtime/proc.go:285"}
+exit status 1

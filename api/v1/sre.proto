@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package sre.v1;
+
+option go_package = "github.com/suryavamsivaggu/sre-platform/api/v1;srev1";
+
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_INFO = 1;
+  SEVERITY_WARNING = 2;
+  SEVERITY_ERROR = 3;
+  SEVERITY_CRITICAL = 4;
+}
+
+enum ServiceStatus {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_HEALTHY = 1;
+  STATUS_DEGRADED = 2;
+  STATUS_DOWN = 3;
+}
+
+message Metric {
+  string service_name = 1;
+  string instance_id = 2;
+  double cpu_usage = 3;
+  double cpu_user = 10;
+  double cpu_system = 11;
+  double cpu_iowait = 12;
+  double memory_usage = 4;
+  double total_memory = 7;
+  double free_memory = 8;
+  double available_memory = 9;
+  int64 active_connections = 5;
+  int64 timestamp = 6;
+}
+
+message Alert {
+  string alert_id = 1;
+  string service_name = 2;
+  Severity severity = 3;
+  string message = 4;
+  int64 timestamp = 5;
+}
+
+message ServiceHealth {
+  string service_name = 1;
+  ServiceStatus status = 2;
+  int64 check_timestamp = 3;
+}
+
+message MetricStreamResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message SubscribeRequest {
+  string service_name_filter = 1; // Empty for all services
+}
+
+service CollectorService {
+  // Agent streams metrics to Collector (Client Streaming)
+  rpc StreamMetrics(stream Metric) returns (MetricStreamResponse);
+  
+  // Real-time server streaming of alerts (Server Streaming)
+  rpc SubscribeAlerts(SubscribeRequest) returns (stream Alert);
+}
