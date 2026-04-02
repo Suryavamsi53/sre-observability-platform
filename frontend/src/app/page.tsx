@@ -12,6 +12,7 @@ import {
   ComposedChart,
   Line,
   Bar,
+  Legend,
 } from "recharts";
 import {
   Activity,
@@ -25,6 +26,8 @@ import {
   Settings as SettingsIcon,
   Search,
   X,
+  Fan,
+  Zap,
 } from "lucide-react";
 
 interface Metric {
@@ -40,6 +43,10 @@ interface Metric {
   available_memory: number;
   active_connections: number;
   timestamp: number;
+  cpu_fan_speed: number;
+  gpu_fan_speed: number;
+  cpu_power: number;
+  gpu_power: number;
 }
 
 interface Alert {
@@ -61,6 +68,8 @@ interface AppSettings {
   showLogs: boolean;
   muteAlerts: boolean;
   simulatedDelay: number;
+  themeColor: "indigo" | "emerald" | "rose" | "purple";
+  powerWarningThreshold: number;
 }
 
 export default function Dashboard() {
@@ -76,6 +85,8 @@ export default function Dashboard() {
     showLogs: true,
     muteAlerts: false,
     simulatedDelay: 0,
+    themeColor: "indigo",
+    powerWarningThreshold: 300,
   });
 
   const appendLog = (type: Log["type"], message: string) => {
@@ -136,12 +147,18 @@ export default function Dashboard() {
     cpu_usage: 0,
     memory_usage: 0,
     active_connections: 0,
+    cpu_fan_speed: 0,
+    gpu_fan_speed: 0,
+    cpu_power: 0,
+    gpu_power: 0,
+    total_memory: 0,
+    free_memory: 0,
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-zinc-100 font-sans selection:bg-indigo-500/30 relative overflow-hidden flex flex-col">
+    <div className={`min-h-screen bg-[#050505] text-zinc-100 font-sans relative overflow-hidden flex flex-col selection:bg-${settings.themeColor}-500/30`}>
       {/* Background Ambience */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-900/10 blur-[120px] pointer-events-none" />
+      <div className={`absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] pointer-events-none transition-colors duration-1000 ${settings.themeColor === 'indigo' ? 'bg-indigo-900/20' : settings.themeColor === 'emerald' ? 'bg-emerald-900/20' : settings.themeColor === 'rose' ? 'bg-rose-900/20' : 'bg-purple-900/20'}`} />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-900/10 blur-[120px] pointer-events-none" />
       {healthStatus === "CRITICAL" && (
         <div className="absolute inset-0 bg-red-900/5 blur-[150px] pointer-events-none transition-all duration-1000" />
@@ -197,7 +214,7 @@ export default function Dashboard() {
       <main className="max-w-[1600px] mx-auto p-6 flex flex-col gap-6 relative z-10 w-full flex-1">
         
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-6">
           <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 shadow-2xl relative overflow-hidden group hover:border-indigo-500/30 transition-all">
             <div className="flex justify-between items-start mb-2 relative z-10">
               <div className="flex items-center gap-2">
@@ -278,6 +295,75 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </div>
           </div>
+
+          {/* New Fan Cards */}
+          <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 shadow-2xl relative overflow-hidden group hover:border-blue-500/30 transition-all">
+            <div className="flex justify-between items-start mb-2 relative z-10">
+              <div className="flex items-center gap-2">
+                <div className="bg-blue-500/20 p-1.5 rounded-md text-blue-400"><Fan className="w-4 h-4" /></div>
+                <h3 className="text-sm font-medium text-zinc-400">Cooling (RPM)</h3>
+              </div>
+              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">
+                {latestMetric.cpu_fan_speed}
+              </span>
+            </div>
+            
+            <div className="flex justify-between items-center text-[10px] text-zinc-500 font-mono mt-1 relative z-10 px-1">
+              <span>CPU: {latestMetric.cpu_fan_speed}</span>
+              <span>GPU: {latestMetric.gpu_fan_speed}</span>
+            </div>
+
+            <div className="h-20 w-full mt-2 -ml-2 -mb-2 opacity-80 group-hover:opacity-100 transition-opacity">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={metricsHistory}>
+                  <defs>
+                    <linearGradient id="fanGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <Area type="monotone" dataKey="cpu_fan_speed" stroke="#3b82f6" strokeWidth={2} fill="url(#fanGrad)" isAnimationActive={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 shadow-2xl relative overflow-hidden group hover:border-yellow-500/30 transition-all">
+            <div className="flex justify-between items-start mb-2 relative z-10">
+              <div className="flex items-center gap-2">
+                <div className="bg-yellow-500/20 p-1.5 rounded-md text-yellow-400"><Zap className="w-4 h-4" /></div>
+                <h3 className="text-sm font-medium text-zinc-400">Power (Watts)</h3>
+              </div>
+              <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded-full ${(latestMetric.cpu_power + latestMetric.gpu_power) > settings.powerWarningThreshold ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                {((latestMetric.cpu_power || 0) + (latestMetric.gpu_power || 0)).toFixed(1)}W
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center text-[10px] text-zinc-500 font-mono mt-1 relative z-10 px-1 border-b border-white/5 pb-1">
+              <span>CPU: {(latestMetric.cpu_power || 0).toFixed(1)}W</span>
+              <span>GPU: {(latestMetric.gpu_power || 0).toFixed(1)}W</span>
+            </div>
+
+            <div className="flex justify-between items-center text-[9px] text-zinc-600 font-mono mt-1 relative z-10 px-1">
+              <span title="Projected Energy per Minute">1m: {(((latestMetric.cpu_power || 0) + (latestMetric.gpu_power || 0)) / 60).toFixed(2)}Wh</span>
+              <span title="Projected Energy per Hour">1h: {((latestMetric.cpu_power || 0) + (latestMetric.gpu_power || 0)).toFixed(1)}Wh</span>
+              <span title="Projected Energy per Day">24h: {(((latestMetric.cpu_power || 0) + (latestMetric.gpu_power || 0)) * 24).toFixed(0)}Wh</span>
+            </div>
+
+            <div className="h-20 w-full mt-2 -ml-2 -mb-2 opacity-80 group-hover:opacity-100 transition-opacity">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={metricsHistory}>
+                  <defs>
+                    <linearGradient id="pwrGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#eab308" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#eab308" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <Area type="monotone" dataKey="gpu_power" stroke="#eab308" strokeWidth={2} fill="url(#pwrGrad)" isAnimationActive={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
 
         {/* Charts and Feed */}
@@ -285,11 +371,6 @@ export default function Dashboard() {
           <div className="lg:col-span-3 bg-white/[0.02] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col h-[450px]">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-base font-semibold text-zinc-200">System Telemetry Matrix</h2>
-              <div className="flex gap-4 text-xs font-medium text-zinc-500">
-                <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-indigo-500" /> CPU Load</span>
-                <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-purple-500" /> Memory</span>
-                <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-cyan-400" /> Network</span>
-              </div>
             </div>
             <div className="flex-1 w-full relative">
               <ResponsiveContainer width="100%" height="100%">
@@ -301,10 +382,12 @@ export default function Dashboard() {
                   <Tooltip 
                     contentStyle={{ backgroundColor: "rgba(9,9,11,0.9)", borderColor: "#27272a", borderRadius: "12px", backdropFilter: "blur(10px)", boxShadow: "0 10px 25px rgba(0,0,0,0.5)" }}
                     itemStyle={{ color: "#e4e4e7", fontSize: '13px' }}
-                    labelStyle={{ display: "none" }}
+                    labelStyle={{ color: "#a1a1aa", fontSize: '12px', fontWeight: 'bold', marginBottom: '8px', display: 'block' }}
+                    labelFormatter={(label) => new Date(label * 1000).toLocaleTimeString()}
                     cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
                   />
-                  
+                  <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '13px', color: '#a1a1aa' }} />
+
                   {/* Detailed Interactive CPU Stacked Layers */}
                   <Area yAxisId="left" stackId="cpu" type="monotone" dataKey="cpu_iowait" name="I/O Wait (%)" stroke="#2dd4bf" strokeWidth={1} fill="#2dd4bf" fillOpacity={0.7} isAnimationActive={false} />
                   <Area yAxisId="left" stackId="cpu" type="monotone" dataKey="cpu_system" name="System (%)" stroke="#c084fc" strokeWidth={1} fill="#c084fc" fillOpacity={0.6} isAnimationActive={false} />
@@ -467,9 +550,43 @@ export default function Dashboard() {
 
             </div>
 
+              <div className="w-full h-[1px] bg-white/5 my-2" />
+
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-zinc-300">Ambient Theme Glow</label>
+                <div className="flex gap-3">
+                  {['indigo', 'emerald', 'rose', 'purple'].map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setSettings({...settings, themeColor: color as AppSettings['themeColor']})}
+                      className={`w-6 h-6 rounded-full border-2 transition-all ${settings.themeColor === color ? 'border-white scale-110' : 'border-transparent opacity-50 hover:opacity-100'} ${color === 'indigo' ? 'bg-indigo-500' : color === 'emerald' ? 'bg-emerald-500' : color === 'rose' ? 'bg-rose-500' : 'bg-purple-500'}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="w-full h-[1px] bg-white/5 my-2" />
+
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-zinc-300">Power Warning Threshold (Watts)</label>
+                <div className="flex items-center gap-4">
+                  <input 
+                    title="Power Warning Threshold"
+                    type="range" 
+                    min="50" 
+                    max="1000" 
+                    step="50"
+                    value={settings.powerWarningThreshold}
+                    onChange={(e) => setSettings({...settings, powerWarningThreshold: parseInt(e.target.value)})}
+                    className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                  />
+                  <span className="text-xs font-mono bg-zinc-800 px-3 py-1.5 rounded-md min-w-[60px] text-center">{settings.powerWarningThreshold}W</span>
+                </div>
+              </div>
+
             <div className="mt-auto pt-6 border-t border-white/5">
               <button 
-                onClick={() => setSettings({maxDataPoints: 30, showLogs: true, muteAlerts: false, simulatedDelay: 0})}
+                onClick={() => setSettings({maxDataPoints: 30, showLogs: true, muteAlerts: false, simulatedDelay: 0, themeColor: "indigo", powerWarningThreshold: 300})}
                 className="w-full py-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-medium transition-colors border border-white/10"
               >
                 Reset to Defaults

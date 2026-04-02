@@ -32,6 +32,12 @@ message Metric {
   double available_memory = 9;
   int64 active_connections = 5;
   int64 timestamp = 6;
+  
+  // New metrics for user request
+  int32 cpu_fan_speed = 13;
+  int32 gpu_fan_speed = 14;
+  double cpu_power = 15;
+  double gpu_power = 16;
 }
 
 message Alert {

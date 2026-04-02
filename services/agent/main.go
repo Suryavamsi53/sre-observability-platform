@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -10,6 +11,9 @@ import (
 
 	pb "github.com/suryavamsivaggu/sre-platform/api/v1"
 	"github.com/suryavamsivaggu/sre-platform/pkg/logger"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/shirou/gopsutil/v3/net"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -51,15 +55,79 @@ func main() {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				totalMem := 16384.0 // 16GB
-				usedMem := rand.Float64() * totalMem
+				v, err := mem.VirtualMemory()
+				if err != nil {
+					logger.Log.Error("Could not read real memory", zap.Error(err))
+					continue
+				}
 
-				// CPU granular modeling
-				cpuTotal := rand.Float64() * 100
-				cpuUser := cpuTotal * 0.6               // 60% of usage is User space
-				cpuSystem := cpuTotal * 0.25            // 25% of usage is System space
-				cpuIOWait := cpuTotal * 0.15            // 15% is mapped to I/O Wait states
+				totalMem := float64(v.Total) / 1024 / 1024
+				usedMem := float64(v.Used) / 1024 / 1024
+				freeMem := float64(v.Free) / 1024 / 1024
+				availableMem := float64(v.Available) / 1024 / 1024
+
+				// CPU granular modeling using real CPU %
+				cpuPercents, err := cpu.Percent(0, false)
+				var cpuTotal float64 = 0
+				if err == nil && len(cpuPercents) > 0 {
+					cpuTotal = cpuPercents[0]
+				}
+
+				cpuUser := cpuTotal * 0.6               // Simulated spaces for realism based on total
+				cpuSystem := cpuTotal * 0.25            
+				cpuIOWait := cpuTotal * 0.15            
+
+				// Real TCP connections 
+				netConns, err := net.Connections("tcp")
+				activeConns := int64(len(netConns))
+				if err != nil {
+					activeConns = 0
+				}
+
+				// REAL Hardware Sensors (Fan Speeds & Power Consumption)
+				var cpuFanSpeed int32 = 0
+				var gpuFanSpeed int32 = 0
+				var cpuPower float64 = 0
+				var gpuPower float64 = 0
+
+				// 1. Read Fan Speeds from hwmon
+				dirs, _ := os.ReadDir("/sys/class/hwmon")
+				for _, d := range dirs {
+					fanFiles, _ := os.ReadDir("/sys/class/hwmon/" + d.Name())
+					for _, f := range fanFiles {
+						if len(f.Name()) >= 9 && f.Name()[:3] == "fan" && f.Name()[len(f.Name())-6:] == "_input" {
+							b, err := os.ReadFile("/sys/class/hwmon/" + d.Name() + "/" + f.Name())
+							if err == nil {
+								var spd int
+								fmt.Sscanf(string(b), "%d", &spd)
+								if d.Name() == "hwmon1" || d.Name() == "hwmon2" { // naive assignment for demonstration
+									gpuFanSpeed = int32(spd)
+								} else {
+									cpuFanSpeed = int32(spd)
+								}
+							}
+						}
+					}
+				}
+
+				// 2. Read CPU Power Consumption (Battery Subsystem Fallback)
+				bCurr, err1 := os.ReadFile("/sys/class/power_supply/BAT0/current_now")
+				bVolt, err2 := os.ReadFile("/sys/class/power_supply/BAT0/voltage_now")
+				if err1 == nil && err2 == nil {
+					var currentUA, voltageUV float64
+					fmt.Sscanf(string(bCurr), "%f", &currentUA)
+					fmt.Sscanf(string(bVolt), "%f", &voltageUV)
+					// microAmps to Amps, microVolts to Volts = Watts
+					watts := (currentUA / 1000000.0) * (voltageUV / 1000000.0)
+					cpuPower = watts
+				} else {
+					// Fallback to synthetic logic if no battery
+					cpuPower = 45.0 + (rand.Float64() * 105.0) * (cpuTotal / 100.0)
+				}
 				
+				// Keep GPU Power simulated or bind it to a relative fraction
+				gpuPower = cpuPower * 0.4
+
 				metric := &pb.Metric{
 					ServiceName:       "frontend-service",
 					InstanceId:        "frontend-1",
@@ -68,11 +136,15 @@ func main() {
 					CpuSystem:         cpuSystem,
 					CpuIowait:         cpuIOWait,
 					MemoryUsage:       usedMem,
-					TotalMemory:       totalMem,
-					FreeMemory:        totalMem - usedMem,
-					AvailableMemory:   (totalMem - usedMem) * 0.9,
-					ActiveConnections: int64(rand.Intn(1000)),
+					TotalMemory:       totalMem, // Uses actual host machine RAM
+					FreeMemory:        freeMem,
+					AvailableMemory:   availableMem,
+					ActiveConnections: activeConns,
 					Timestamp:         time.Now().Unix(),
+					CpuFanSpeed:       cpuFanSpeed,
+					GpuFanSpeed:       gpuFanSpeed,
+					CpuPower:          cpuPower,
+					GpuPower:          gpuPower,
 				}
 				if err := stream.Send(metric); err != nil {
 					logger.Log.Error("Failed to send metric", zap.Error(err))

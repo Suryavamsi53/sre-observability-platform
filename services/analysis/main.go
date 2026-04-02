@@ -42,26 +42,36 @@ func main() {
 				return err
 			}
 
-			// Simulated Anomaly Detection Policies
+			// Real-time Anomaly Detection Policies
 			var alert *pb.Alert
 
-			if metric.CpuUsage > 85.0 {
+			memPercent := (metric.MemoryUsage / metric.TotalMemory) * 100
+
+			if metric.CpuUsage > 90.0 {
 				alert = &pb.Alert{
 					AlertId:     "cpu-spike-" + metric.ServiceName,
 					ServiceName: metric.ServiceName,
 					Severity:    pb.Severity_SEVERITY_CRITICAL,
-					Message:     "High CPU usage detected",
+					Message:     "High CPU load detected",
 					Timestamp:   time.Now().Unix(),
 				}
-			} else if metric.MemoryUsage > 800.0 {
+			} else if memPercent > 85.0 {
 				alert = &pb.Alert{
 					AlertId:     "mem-leak-" + metric.ServiceName,
 					ServiceName: metric.ServiceName,
 					Severity:    pb.Severity_SEVERITY_WARNING,
-					Message:     "Memory usage extremely high",
+					Message:     "Memory usage exceeding 85%",
 					Timestamp:   time.Now().Unix(),
 				}
-			} else if metric.ActiveConnections > 900 {
+			} else if metric.CpuPower > 80.0 { // Average laptop throttle point
+				alert = &pb.Alert{
+					AlertId:     "pwr-spike-" + metric.ServiceName,
+					ServiceName: metric.ServiceName,
+					Severity:    pb.Severity_SEVERITY_WARNING,
+					Message:     "CPU Power Consumption Surge",
+					Timestamp:   time.Now().Unix(),
+				}
+			} else if metric.ActiveConnections > 5000 {
 				alert = &pb.Alert{
 					AlertId:     "conn-surge-" + metric.ServiceName,
 					ServiceName: metric.ServiceName,
