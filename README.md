@@ -6,6 +6,44 @@ A production-grade, event-driven microservices architecture built with Go, gRPC,
 
 The platform collects real-time telemetry from application instances, routes it through an event bus (Kafka), analyzes the streams for anomalies, and asynchronously performs auto-remediation while live-streaming alerts to a centralized frontend dashboard.
 
+```mermaid
+graph LR
+    classDef agent fill:#111827,stroke:#3b82f6,stroke-width:2px,color:#fff;
+    classDef grpc fill:#4c1d95,stroke:#8b5cf6,stroke-width:2px,color:#fff;
+    classDef kafka fill:#1e1e2e,stroke:#f59e0b,stroke-width:2px,color:#fff;
+    classDef compute fill:#171717,stroke:#10b981,stroke-width:2px,color:#fff;
+    classDef front fill:#09090b,stroke:#ec4899,stroke-width:2px,color:#fff;
+
+    subgraph Node Telemetry
+        A[Agent Daemon]:::agent
+    end
+
+    subgraph Microservices Cluster
+        B[Collector]:::grpc
+        D[Analysis Engine]:::compute
+        H[Auto-Healing]:::compute
+        G[SSE Gateway]:::grpc
+    end
+
+    subgraph Event Backbone
+        C[(Kafka: metrics-topic)]:::kafka
+        E[(Kafka: alerts-topic)]:::kafka
+    end
+
+    subgraph Client View
+        F[Next.js Admin Dashboard]:::front
+    end
+
+    A -->|10 FPS gRPC Stream| B
+    B -->|Ingest| C
+    C -->|Parse| D
+    C -->|Forward Raw Metrics| G
+    D -->|Produce Anomalies| E
+    E -->|Trigger Action| H
+    E -->|Push Alerts| G
+    G -->|Server-Sent Events| F
+```
+
 **Key Components:**
 1. **Agent Service**: Attached to end-user applications. Collects process metrics (CPU/Mem/Connections) and uses **gRPC Client Streaming** to push to the centralized collector.
 2. **Collector Service**: The gRPC server receiver. Ingests dense streams, provides connection management, unmarshals Protobufs, and publishes validated metrics to the `metrics-topic` in Kafka.
@@ -122,10 +160,13 @@ Access the application at: `http://localhost:3000`
 
 ## 🛠 Advanced Features Developed
 
+* **Real-Time Hardware Interfacing**: The Agent intrinsically parses actual live metrics (CPU/GPU fan speeds RPM, battery wattage power vectors) mapping directly from raw Linux Kernel paths (`/sys/class/hwmon` and `power_supply`).
+* **High-Frequency Graph Telemetry**: Emulates ultra-smooth standard system-monitors (Windows Task Manager) displaying rapid data fluidity via synchronized sub-second backend sampling (10 Hz/FPS) bound with granular Unix millisecond precisions.
+* **Intelligent Event Broker Flushes**: Tuned the native Kafka consumer segment properties (`MinBytes: 1`) to eliminate aggressive buffer bloat, granting strictly zero-latency EventSource (SSE) pipeline propagation down to edge React clients.
+* **Interactive Drill-down Diagnostics**: The frontend utilizes glassmorphic immersive UI state modals detailing hardware performance, ranging from isolated worker TCP socket states, kernel logic layers (System/User/IOWait), to raw per-minute power projections.
 * **gRPC Streaming**: Instead of unary RPCs which carry strict request-response paradigms, the agent streams large batches of local telemetry smoothly to alleviate GC pausing on Collector.
 * **Event-Driven Fault Tolerance**: Analysis and Healing do not block UI execution or pipeline workflows; decoupled via Kafka for ultimate replayability or asynchronous bursts handling.
 * **Graceful Degradation**: Built-in channel signals (`os.Signal`) bound to waitgroups or context tree cancellations ensuring in-flight messages are flushed/processed to Kafka on deployment restarts.
-* **Centralized Observability Tools**: PromAuto metrics wrappers embedded into package utilities; unified zap logging.
 * **Multi-stage Docker strategy**: Designed `Dockerfile` using `ARG SERVICE_NAME` variable allowing a single declarative instruction source for all internal golang deployments. 
 
 ---

@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"os"
+	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -47,8 +48,20 @@ func main() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
+	var cachedMemoryType string
 	go func() {
-		ticker := time.NewTicker(2 * time.Second)
+		out, err := exec.Command("sh", "-c", "dmidecode -t memory | grep 'Type: DDR' | head -n 1").Output()
+		if err == nil && len(out) > 0 {
+			t := strings.TrimSpace(string(out))
+			t = strings.Replace(t, "Type: ", "", 1)
+			cachedMemoryType = t
+		} else {
+			cachedMemoryType = "DDR4 / LPDDR5 (Estimated)"
+		}
+	}()
+
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond)
 		defer ticker.Stop()
 		for {
 			select {
@@ -65,6 +78,15 @@ func main() {
 				usedMem := float64(v.Used) / 1024 / 1024
 				freeMem := float64(v.Free) / 1024 / 1024
 				availableMem := float64(v.Available) / 1024 / 1024
+
+				sw, _ := mem.SwapMemory()
+				var swapTotal, swapUsed float64
+				if sw != nil {
+					swapTotal = float64(sw.Total) / 1024 / 1024
+					swapUsed = float64(sw.Used) / 1024 / 1024
+				}
+				memCached := float64(v.Cached) / 1024 / 1024
+				memBuffers := float64(v.Buffers) / 1024 / 1024
 
 				// CPU granular modeling using real CPU %
 				cpuPercents, err := cpu.Percent(0, false)
@@ -121,12 +143,12 @@ func main() {
 					watts := (currentUA / 1000000.0) * (voltageUV / 1000000.0)
 					cpuPower = watts
 				} else {
-					// Fallback to synthetic logic if no battery
-					cpuPower = 45.0 + (rand.Float64() * 105.0) * (cpuTotal / 100.0)
+					// Fallback to realistic synthetic logic (Base 6W idle + Usage dynamic)
+					cpuPower = 6.2 + (float64(cpuTotal) * 0.45) 
 				}
 				
-				// Keep GPU Power simulated or bind it to a relative fraction
-				gpuPower = cpuPower * 0.4
+				// GPU Power scaled to relative load (Base 2W + usage)
+				gpuPower = 2.1 + (float64(cpuTotal) * 0.15)
 
 				metric := &pb.Metric{
 					ServiceName:       "frontend-service",
@@ -139,8 +161,13 @@ func main() {
 					TotalMemory:       totalMem, // Uses actual host machine RAM
 					FreeMemory:        freeMem,
 					AvailableMemory:   availableMem,
+					MemCached:         memCached,
+					MemBuffers:        memBuffers,
+					SwapTotal:         swapTotal,
+					SwapUsed:          swapUsed,
+					MemoryType:        cachedMemoryType,
 					ActiveConnections: activeConns,
-					Timestamp:         time.Now().Unix(),
+					Timestamp:         time.Now().UnixMilli(),
 					CpuFanSpeed:       cpuFanSpeed,
 					GpuFanSpeed:       gpuFanSpeed,
 					CpuPower:          cpuPower,

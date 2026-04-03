@@ -17,7 +17,7 @@ func NewConsumer(brokers []string, topic, groupID string) *Consumer {
 		Brokers:  brokers,
 		GroupID:  groupID,
 		Topic:    topic,
-		MinBytes: 10e3, // 10KB
+		MinBytes: 1, // 1 byte to ensure real-time streaming
 		MaxBytes: 10e6, // 10MB
 	})
 	return &Consumer{reader: r}

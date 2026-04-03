@@ -38,6 +38,13 @@ message Metric {
   int32 gpu_fan_speed = 14;
   double cpu_power = 15;
   double gpu_power = 16;
+  
+  // Advanced RAM Metrics
+  double mem_cached = 17;
+  double mem_buffers = 18;
+  double swap_total = 19;
+  double swap_used = 20;
+  string memory_type = 21;
 }
 
 message Alert {
