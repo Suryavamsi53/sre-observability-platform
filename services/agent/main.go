@@ -13,11 +13,19 @@ import (
 	pb "github.com/suryavamsivaggu/sre-platform/api/v1"
 	"github.com/suryavamsivaggu/sre-platform/pkg/logger"
 	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
+	"github.com/shirou/gopsutil/v3/process"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+)
+
+var (
+	lastTxBytes uint64
+	lastRxBytes uint64
+	lastNetTime time.Time
 )
 
 func main() {
@@ -95,6 +103,13 @@ func main() {
 					cpuTotal = cpuPercents[0]
 				}
 
+				cpuInfos, _ := cpu.Info()
+				cpuCounts, _ := cpu.Counts(true)
+				cpuModelName := "Generic Processor"
+				if len(cpuInfos) > 0 {
+					cpuModelName = cpuInfos[0].ModelName
+				}
+
 				cpuUser := cpuTotal * 0.6               // Simulated spaces for realism based on total
 				cpuSystem := cpuTotal * 0.25            
 				cpuIOWait := cpuTotal * 0.15            
@@ -150,6 +165,81 @@ func main() {
 				// GPU Power scaled to relative load (Base 2W + usage)
 				gpuPower = 2.1 + (float64(cpuTotal) * 0.15)
 
+				// REAL Network Throughput (Bits per second)
+				var txBitsPerSec, rxBitsPerSec float64
+				netIo, err := net.IOCounters(false)
+				if err == nil && len(netIo) > 0 {
+					// We'll use a static var or similar to track delta. 
+					// For simplicity in this demo, let's derive it from a jittered base if first run,
+					// or better yet, maintain a simple package-level state for this agent.
+					currTx := netIo[0].BytesSent
+					currRx := netIo[0].BytesRecv
+					
+					// Simple simulated delta if we don't want to persist state across loop iterations
+					// ideally we'd use global vars. Let's use global vars.
+					if lastTxBytes > 0 {
+						dt := time.Since(lastNetTime).Seconds()
+						if dt > 0 {
+							txBitsPerSec = float64(currTx-lastTxBytes) * 8 / dt
+							rxBitsPerSec = float64(currRx-lastRxBytes) * 8 / dt
+						}
+					}
+					lastTxBytes = currTx
+					lastRxBytes = currRx
+					lastNetTime = time.Now()
+				}
+
+				hops := "192.168.1.1,10.0.0.1,172.16.0.1,8.8.8.8"
+				latency := 15.2 + (float64(cpuTotal) * 0.1)
+
+				hInfo, _ := host.Info()
+				threadCount := int64(0)
+				processCount := int32(0)
+				
+				allProcs, _ := process.Processes()
+				processCount = int32(len(allProcs))
+				
+				var topProcesses []*pb.Process
+				type procUsage struct {
+					p    *process.Process
+					cpu  float64
+					name string
+				}
+				var usages []procUsage
+				
+				for _, p := range allProcs {
+					c, _ := p.CPUPercent()
+					n, _ := p.Name()
+					t, _ := p.NumThreads()
+					threadCount += int64(t)
+					if c > 0.1 {
+						usages = append(usages, procUsage{p, c, n})
+					}
+				}
+				
+				for i := 0; i < len(usages); i++ {
+					for j := i + 1; j < len(usages); j++ {
+						if usages[i].cpu < usages[j].cpu {
+							usages[i], usages[j] = usages[j], usages[i]
+						}
+					}
+				}
+				
+				limit := 5
+				if len(usages) < 5 {
+					limit = len(usages)
+				}
+				
+				for i := 0; i < limit; i++ {
+					memP, _ := usages[i].p.MemoryPercent()
+					topProcesses = append(topProcesses, &pb.Process{
+						Pid:         usages[i].p.Pid,
+						Name:        usages[i].name,
+						CpuUsage:    usages[i].cpu,
+						MemoryUsage: float64(memP),
+					})
+				}
+
 				metric := &pb.Metric{
 					ServiceName:       "frontend-service",
 					InstanceId:        "frontend-1",
@@ -158,20 +248,31 @@ func main() {
 					CpuSystem:         cpuSystem,
 					CpuIowait:         cpuIOWait,
 					MemoryUsage:       usedMem,
-					TotalMemory:       totalMem, // Uses actual host machine RAM
+					TotalMemory:       totalMem,
 					FreeMemory:        freeMem,
 					AvailableMemory:   availableMem,
 					MemCached:         memCached,
 					MemBuffers:        memBuffers,
 					SwapTotal:         swapTotal,
 					SwapUsed:          swapUsed,
-					MemoryType:        cachedMemoryType,
 					ActiveConnections: activeConns,
 					Timestamp:         time.Now().UnixMilli(),
 					CpuFanSpeed:       cpuFanSpeed,
 					GpuFanSpeed:       gpuFanSpeed,
 					CpuPower:          cpuPower,
 					GpuPower:          gpuPower,
+					MemoryType:        fmt.Sprintf("%s (%s)", hInfo.KernelArch, cachedMemoryType),
+					TxBytes:           float64(lastTxBytes),
+					RxBytes:           float64(lastRxBytes),
+					TxBitsPerSec:      txBitsPerSec,
+					RxBitsPerSec:      rxBitsPerSec,
+					LatencyMs:         latency,
+					Hops:              hops,
+					ThreadCount:       threadCount,
+					RunningProcesses:  processCount,
+					TopProcesses:      topProcesses,
+					CpuModel:          cpuModelName,
+					CpuCores:          int32(cpuCounts),
 				}
 				if err := stream.Send(metric); err != nil {
 					logger.Log.Error("Failed to send metric", zap.Error(err))
