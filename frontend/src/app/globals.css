@@ -12,3 +12,32 @@ body {
   color: rgb(var(--foreground-rgb));
   background: black;
 }
+
+@keyframes fan-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-fan-spin {
+  animation: fan-rotate linear infinite;
+}
+
+@keyframes flow-pulse {
+  0% { transform: rotate(var(--tw-rotate)) translateX(0); opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: rotate(var(--tw-rotate)) translateX(150px); opacity: 0; }
+}
+
+@keyframes progress-scan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+.animate-flow-pulse {
+  animation: flow-pulse 2s infinite linear;
+}
+
+.animate-progress-scan {
+  animation: progress-scan 3s infinite linear;
+}

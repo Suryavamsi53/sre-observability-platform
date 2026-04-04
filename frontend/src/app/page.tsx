@@ -37,6 +37,16 @@ import {
   Sun,
   Moon,
   Globe,
+  Flame,
+  Skull,
+  Wind,
+  WifiOff,
+  DollarSign,
+  Fingerprint,
+  FileText,
+  History,
+  Share2,
+  Database,
 } from "lucide-react";
 
 interface Metric {
@@ -78,6 +88,38 @@ interface Metric {
   }>;
   cpu_model: string;
   cpu_cores: number;
+  // SRE Core metrics
+  mttr_seconds: number;
+  error_budget_percent: number;
+  uptime_percent: number;
+  cost_estimate_local: number;
+  overspend_percent: number;
+  // Live SRE Production Jobs
+  jobs: Array<{
+    name: string;
+    status: string;
+    progress: number;
+    last_run: string;
+    duration_seconds?: number;
+    cpu_usage?: number;
+    memory_mb?: number;
+    steps?: string[];
+  }>;
+  chaos_diagnosis: string;
+  // Distributed Tracing
+  trace_id: string;
+  // Deployment & Release
+  release: {
+     version: string;
+     status: string;
+     deployed_at: number;
+  };
+  // Visualization & Graph
+  dependencies: Array<{
+     target_service: string;
+     call_type: string;
+     latency_ms: number;
+  }>;
 }
 
 interface Alert {
@@ -117,6 +159,18 @@ export default function Dashboard() {
   const [logs, setLogs] = useState<Log[]>([]);
   const [healthStatus, setHealthStatus] = useState<"HEALTHY" | "WARNING" | "CRITICAL">("HEALTHY");
 
+  const [toasts, setToasts] = useState<Array<{id: number, message: string, severity: 'critical' | 'warning' | 'info' | 'success'}>>([]);
+
+  const addToast = (message: string, severity: 'critical' | 'warning' | 'info' | 'success') => {
+    const id = Date.now();
+    setToasts(prev => [...prev.slice(-4), {id, message, severity}]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 6000);
+  };
+
+
+
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
   const [loginUsername, setLoginUsername] = useState("");
@@ -131,9 +185,12 @@ export default function Dashboard() {
   const [userProfile, setUserProfile] = useState<UserProfile>({
     name: "System Administrator",
     role: "admin",
-    department: "Infrastructure & Reliability",
-    avatarUrl: "",
+    department: "SRE Operations",
+    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=SystemAdmin"
   });
+
+  const isAdmin = userProfile.role === 'admin';
+
   const [settings, setSettings] = useState<AppSettings>({
     maxDataPoints: 200,
     showLogs: true,
@@ -165,6 +222,11 @@ export default function Dashboard() {
           top_processes: rawData.top_processes ?? [],
           cpu_model: rawData.cpu_model ?? "Intel Core i5-10xxx",
           cpu_cores: rawData.cpu_cores ?? 4,
+          jobs: rawData.jobs ?? [],
+          chaos_diagnosis: rawData.chaos_diagnosis ?? "",
+          trace_id: rawData.trace_id ?? "trace-none",
+          release: rawData.release ?? { version: "v1.0.0", status: "PRODUCTION", deployed_at: 0 },
+          dependencies: rawData.dependencies ?? [],
         };
         setMetricsHistory((prev) => {
           const newHistory = [...prev, data];
@@ -180,10 +242,13 @@ export default function Dashboard() {
       setTimeout(() => {
         const data: Alert = JSON.parse(event.data);
         setAlerts((prev) => {
-          if (prev.find((a) => a.alert_id === data.alert_id)) return prev;
-          return [data, ...prev].slice(0, 8);
+          const newAlerts = [data, ...prev].slice(0, 50);
+          if (data.severity === 4 && !settings.muteAlerts) {
+            addToast(`CRITICAL: ${data.message} in ${data.service_name}`, "critical");
+          }
+          return newAlerts;
         });
-
+        
         if (data.severity === 4) setHealthStatus("CRITICAL");
         else if (healthStatus !== "CRITICAL") setHealthStatus("WARNING");
 
@@ -264,6 +329,16 @@ export default function Dashboard() {
     memory_type: "Scanning...",
     service_name: "Initial...",
     instance_id: "Loading...",
+    mttr_seconds: 0,
+    error_budget_percent: 0,
+    uptime_percent: 0,
+    cost_estimate_local: 0,
+    overspend_percent: 0,
+    jobs: [],
+    chaos_diagnosis: "",
+    trace_id: "trace-pending",
+    release: { version: "v0.0.0", status: "NONE", deployed_at: 0 },
+    dependencies: [],
     tx_bytes: 0,
     rx_bytes: 0,
     tx_bits_per_sec: 0,
@@ -353,14 +428,19 @@ export default function Dashboard() {
             </h1>
           </div>
 
-          <div className={`hidden md:flex items-center ${settings.themeMode === 'dark' ? 'bg-white/5 border-white/10' : 'bg-zinc-100 border-zinc-200'} border rounded-full px-4 py-1.5 focus-within:ring-1 focus-within:ring-indigo-500/50 transition-all`}>
+          <div className={`hidden lg:flex items-center gap-1 ${settings.themeMode === 'dark' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100'} border rounded-full px-3 py-1.5`}>
+            <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none">Release: {latestMetric.release?.version || 'v1.4.2'} • {latestMetric.release?.status || 'STABLE'}</span>
+          </div>
+
+          <div className={`hidden md:flex items-center ${settings.themeMode === 'dark' ? 'bg-white/5 border-white/10' : 'bg-zinc-100 border-zinc-200'} border rounded-full px-4 py-1.5 focus-within:ring-1 focus-within:ring-indigo-500/50 transition-all ml-4`}>
             <Search className="w-4 h-4 text-zinc-500 mr-2" />
             <input
               type="text"
-              placeholder="Filter incidents & logs..."
+              placeholder="Filter incidents & traces..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className={`bg-transparent border-none outline-none text-sm ${settings.themeMode === 'dark' ? 'text-zinc-200 placeholder:text-zinc-600' : 'text-zinc-800 placeholder:text-zinc-400'} w-64`}
+              className={`bg-transparent border-none outline-none text-sm ${settings.themeMode === 'dark' ? 'text-zinc-200 placeholder:text-zinc-600' : 'text-zinc-800 placeholder:text-zinc-400'} w-48 lg:w-64`}
             />
           </div>
 
@@ -549,7 +629,12 @@ export default function Dashboard() {
           >
             <div className="flex justify-between items-start mb-2 relative z-10">
               <div className="flex items-center gap-2">
-                <div className={`${settings.themeMode === 'dark' ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-600'} p-1.5 rounded-md`}><Fan className="w-4 h-4" /></div>
+                <div className={`${settings.themeMode === 'dark' ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-600'} p-1.5 rounded-md`}>
+                  <Fan 
+                    className={`w-4 h-4 ${latestMetric.cpu_fan_speed > 0 ? "animate-fan-spin" : ""}`} 
+                    style={{ animationDuration: latestMetric.cpu_fan_speed > 0 ? `${Math.max(0.1, 2 - (latestMetric.cpu_fan_speed / 3000))}s` : '0s' }}
+                  />
+                </div>
                 <h3 className={`text-sm font-medium ${settings.themeMode === 'dark' ? 'text-zinc-400' : 'text-zinc-600'}`}>Cooling (RPM)</h3>
               </div>
               <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">
@@ -620,9 +705,214 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </div>
           </div>
+          <div
+            onClick={() => setSelectedCard("graph")}
+            className={`lg:col-span-3 ${settings.themeMode === 'dark' ? 'bg-white/[0.02] border-white/5 hover:border-emerald-500/30' : 'bg-white border-zinc-200 shadow-sm hover:border-emerald-300'} border rounded-3xl p-8 relative overflow-hidden group transition-all cursor-pointer active:scale-95 min-h-[380px] flex flex-col`}
+          >
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <div className="flex items-center gap-4">
+                <div className={`${settings.themeMode === 'dark' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-600'} p-3 rounded-2xl border border-emerald-500/20`}><Globe className="w-6 h-6" /></div>
+                <div>
+                   <h3 className={`text-lg font-black ${settings.themeMode === 'dark' ? 'text-zinc-100' : 'text-zinc-900'} uppercase tracking-[0.2em]`}>Strategic Topology</h3>
+                   <span className="text-[10px] text-zinc-500 font-mono italic opacity-80 uppercase tracking-widest">Global Correlation Mesh • Primary Node: {latestMetric.service_name}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 px-5 py-2 rounded-2xl shadow-inner">
+                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,1)]" />
+                 <span className="text-xs font-mono font-black text-emerald-400 tracking-widest">
+                   {latestMetric.dependencies?.length || 4} ACTIVE UPSTREAMS
+                 </span>
+              </div>
+            </div>
+            
+            <div className="flex-1 flex items-center justify-center relative mt-8 overflow-hidden">
+               {/* Strategic Grid Background */}
+               <div className="absolute inset-0 bg-[radial-gradient(#10b98110_1.5px,transparent_1.5px)] [background-size:60px_60px] opacity-40 shadow-inner" />
+
+               {/* Center Hub: GATEWAY (XL) */}
+               <div className="w-28 h-28 rounded-full bg-emerald-500/10 border-4 border-emerald-400/30 flex flex-col items-center justify-center relative z-20 animate-pulse shadow-[0_0_80px_rgba(16,185,129,0.15)] group-hover:scale-110 transition-transform duration-700">
+                  <div className="w-4 h-4 rounded-full bg-emerald-400 animate-ping absolute -top-1" />
+                  <span className="text-[11px] font-black text-white uppercase tracking-[0.3em] mb-1">HUB</span>
+                  <div className="flex gap-1.5">
+                     {[1,2,3].map(i => <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === 2 ? 'bg-emerald-400' : 'bg-emerald-400/40'}`} />)}
+                  </div>
+               </div>
+
+               {/* Strategic Scale Dependency Orbits */}
+               {(latestMetric.dependencies?.length ? latestMetric.dependencies : [
+                  {target_service: "auth-gateway-svc", call_type: "GRPC"},
+                  {target_service: "primary-postgres", call_type: "SQL"},
+                  {target_service: "static-edge-cdn", call_type: "HTTP"},
+                  {target_service: "log-aggregator", call_type: "BUFF"}
+               ]).map((dep, i) => {
+                  const total = (latestMetric.dependencies?.length || 4);
+                  const angle = (i * (360 / total)) * (Math.PI / 180);
+                  const radiusX = 320; // Strategic Horizontal Spread
+                  const radiusY = 130;  // Increased Vertical Depth
+                  const x = Math.cos(angle) * radiusX;
+                  const y = Math.sin(angle) * radiusY;
+                  
+                  return (
+                     <div key={i} className="absolute transition-all duration-1000 group/node" style={{ transform: `translate(${x}px, ${y}px)` }}>
+                        <div className={`p-6 rounded-[32px] shadow-2xl backdrop-blur-3xl transition-all duration-500 flex flex-col items-center relative z-30 min-w-[200px] ${
+                          settings.themeMode === 'dark' ? 'bg-black/90 border-white/10 hover:border-emerald-500/50' : 'bg-white border-zinc-200 hover:border-emerald-300'
+                        } border-2 group-hover/node:scale-110 group-hover/node:z-40`}>
+                           <div className="flex items-center gap-2 mb-3">
+                              {dep.call_type === 'GRPC' && <Share2 className="w-3.5 h-3.5 text-blue-400" />}
+                              {dep.call_type === 'SQL' && <Database className="w-3.5 h-3.5 text-amber-500" />}
+                              {dep.call_type === 'HTTP' && <Globe className="w-3.5 h-3.5 text-emerald-400" />}
+                              {dep.call_type === 'REST' && <Globe className="w-3.5 h-3.5 text-indigo-400" />}
+                              <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${
+                                 dep.call_type === 'SQL' ? 'text-amber-500' : 
+                                 dep.call_type === 'GRPC' ? 'text-blue-400' :
+                                 dep.call_type === 'REST' ? 'text-indigo-400' : 'text-emerald-400'
+                              }`}>{dep.call_type} ENGINE</span>
+                           </div>
+                           <span className={`text-sm font-black uppercase leading-none tracking-tight mb-4 ${settings.themeMode === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`}>{dep.target_service}</span>
+                           <div className="flex flex-col gap-2 w-full border-t border-white/10 pt-4">
+                              <div className="flex justify-between items-center text-[8px] font-black text-zinc-500 uppercase tracking-widest">
+                                 <span>Resource Load</span>
+                                 <span className={dep.call_type === 'SQL' ? 'text-amber-400' : 'text-white'}>64.8%</span>
+                              </div>
+                              <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
+                                 <div 
+                                    className={`h-full ${dep.call_type === 'SQL' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]'}`} 
+                                    style={{ width: '64.8%' }} 
+                                 />
+                              </div>
+                           </div>
+                        </div>
+                        
+                        {/* Strategic High-Contrast Particle Path */}
+                        <div className="absolute top-1/2 left-1/2 -z-10 h-[2px] bg-gradient-to-r from-emerald-500/0 via-emerald-500/30 to-emerald-500/0 origin-left pointer-events-none" 
+                             style={{ 
+                                width: `${radiusX}px`, 
+                                transform: `rotate(${angle + Math.PI}rad) translateX(15px)` 
+                             }} 
+                        />
+                        
+                        {/* Accelerated Particle Physics */}
+                        <div className="absolute top-1/2 left-1/2 -z-10 w-3 h-3 bg-emerald-400 rounded-full blur-[3.5px] shadow-[0_0_15px_rgba(16,185,129,1)]" 
+                             style={{ 
+                                animation: `flow-pulse 2s infinite linear`,
+                                animationDelay: `${i * 0.5}s`,
+                                transform: `rotate(${angle + Math.PI}rad) translateX(${radiusX}px)` 
+                             }} 
+                        />
+                     </div>
+                  );
+               })}
+            </div>
+
+            <div className={`mt-8 pt-6 border-t ${settings.themeMode === 'dark' ? 'border-white/5' : 'border-zinc-100'} flex justify-between items-end relative z-20`}>
+               <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-3">
+                     <Fingerprint className="w-4 h-4 text-indigo-400 animate-pulse" />
+                     <span className="text-[11px] text-zinc-500 font-mono tracking-tight uppercase font-black">Strategic Mesh Context: Primary-Correlation-Cell</span>
+                  </div>
+                  <span className="text-[9px] text-zinc-600 font-mono tracking-[0.3em] font-bold">{latestMetric.trace_id}</span>
+               </div>
+               <div className="flex items-center gap-8">
+                  <div className="text-right">
+                     <span className="block text-[9px] text-zinc-500 font-black uppercase mb-1 tracking-widest">Mesh Stability Index</span>
+                     <span className="text-2xl font-mono font-black text-emerald-400 tracking-tighter">99.98%</span>
+                  </div>
+                  <div className="h-2 w-32 rounded-full bg-emerald-500/10 overflow-hidden relative border border-emerald-500/10">
+                     <div className="absolute top-0 left-0 h-full w-1/3 bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,1)] animate-[move_3s_infinite_linear]" />
+                  </div>
+               </div>
+            </div>
+          </div>
+          <div
+            onClick={() => setSelectedCard("jobs")}
+            className={`${settings.themeMode === 'dark' ? 'bg-indigo-500/5 border-indigo-500/20 hover:border-indigo-500/50' : 'bg-indigo-50 border-indigo-200 shadow-sm hover:border-indigo-300'} border rounded-2xl p-5 relative overflow-hidden group transition-all cursor-pointer active:scale-95`}
+          >
+            <div className="flex justify-between items-start mb-2 relative z-10">
+              <div className="flex items-center gap-2">
+                <div className={`${settings.themeMode === 'dark' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-100 text-indigo-600'} p-1.5 rounded-md`}><Briefcase className="w-4 h-4" /></div>
+                <h3 className={`text-sm font-medium ${settings.themeMode === 'dark' ? 'text-zinc-400' : 'text-zinc-600'}`}>SRE Jobs</h3>
+              </div>
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
+                {latestMetric.jobs?.filter(j => j.status === 'RUNNING').length || 2} ACTIVE
+              </span>
+            </div>
+            <div className="mt-4 space-y-2">
+               {latestMetric.jobs?.slice(0, 2).map((j, i) => (
+                  <div key={i} className="flex justify-between items-center text-[10px]">
+                     <span className="text-zinc-500 truncate mr-2">{j.name}</span>
+                     <span className={`${j.status === 'RUNNING' ? 'text-blue-400' : 'text-emerald-400'} font-bold`}>{j.status}</span>
+                  </div>
+               )) || (
+                  <div className="text-[10px] text-zinc-600 italic">No active automation...</div>
+               )}
+            </div>
+          </div>
+
+          <div
+            onClick={() => setSelectedCard("chaos")}
+            className={`${settings.themeMode === 'dark' ? 'bg-orange-500/5 border-orange-500/20 hover:border-orange-500/50' : 'bg-orange-50 border-orange-200 shadow-sm hover:border-orange-300'} border rounded-2xl p-5 relative overflow-hidden group transition-all cursor-pointer active:scale-95`}
+          >
+            <div className="flex justify-between items-start mb-2 relative z-10">
+              <div className="flex items-center gap-2">
+                <div className={`${settings.themeMode === 'dark' ? 'bg-orange-500/20 text-orange-400' : 'bg-orange-100 text-orange-600'} p-1.5 rounded-md`}><Flame className="w-4 h-4" /></div>
+                <h3 className={`text-sm font-medium ${settings.themeMode === 'dark' ? 'text-zinc-400' : 'text-zinc-600'}`}>Chaos Lab</h3>
+              </div>
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 animate-pulse">
+                READY
+              </span>
+            </div>
+            <p className={`text-[10px] ${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'} leading-tight mt-2`}>Inject faults, latency, and simulate service crashes to test reliability protocols.</p>
+            <div className="mt-4 flex gap-2">
+                <div className="flex-1 h-1 bg-orange-500/20 rounded-full overflow-hidden"><div className="bg-orange-500 h-full w-1/3" /></div>
+                <div className="flex-1 h-1 bg-orange-500/10 rounded-full" />
+                <div className="flex-1 h-1 bg-orange-500/10 rounded-full" />
+            </div>
+          </div>
+
+          <div
+            onClick={() => setSelectedCard("cost")}
+            className={`${settings.themeMode === 'dark' ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/50' : 'bg-emerald-50 border-emerald-200 shadow-sm hover:border-emerald-300'} border rounded-2xl p-5 relative overflow-hidden group transition-all cursor-pointer active:scale-95`}
+          >
+            <div className="flex justify-between items-start mb-2 relative z-10">
+              <div className="flex items-center gap-2">
+                <div className={`${settings.themeMode === 'dark' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600'} p-1.5 rounded-md`}><DollarSign className="w-4 h-4" /></div>
+                <h3 className={`text-sm font-medium ${settings.themeMode === 'dark' ? 'text-zinc-400' : 'text-zinc-600'}`}>Cost HUD</h3>
+              </div>
+            </div>
+             <div className="mt-1 flex flex-col">
+                <span className="text-xl font-mono font-black text-emerald-400 tracking-tighter">₹{(latestMetric.cost_estimate_local ?? 0).toFixed(0)}<span className="text-[10px] ml-1 opacity-60 font-normal">/mo est.</span></span>
+                <span className={`text-[9px] ${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'} uppercase font-bold mt-1`}>Predicted Resource Burn</span>
+             </div>
+          </div>
         </div>
 
         {/* Charts and Feed */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+          <div className={`lg:col-span-4 ${settings.themeMode === 'dark' ? 'bg-white/[0.02] border-white/5' : 'bg-white border-zinc-200 shadow-lg'} border rounded-2xl p-5 flex flex-wrap gap-8 items-center`}>
+            <h2 className={`text-xs font-black ${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'} uppercase tracking-widest flex items-center gap-2 border-r ${settings.themeMode === 'dark' ? 'border-white/5' : 'border-zinc-100'} pr-8 mr-4 leading-none h-6`}>
+              <Activity className="w-3 h-3" /> Reliability SLIs
+            </h2>
+            <div className="flex-1 flex gap-12 overflow-x-auto no-scrollbar">
+              <div className="flex flex-col">
+                <span className={`text-[9px] ${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'} uppercase font-bold`}>System Uptime</span>
+                <span className="text-sm font-mono font-black text-emerald-400">{(latestMetric.uptime_percent ?? 99.9).toFixed(2)}%</span>
+              </div>
+              <div className="flex flex-col">
+                <span className={`text-[9px] ${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'} uppercase font-bold`}>Error Budget</span>
+                <span className="text-sm font-mono font-black text-blue-400">{(latestMetric.error_budget_percent ?? 0.02).toFixed(3)}% <span className="opacity-40 text-[9px]">rem.</span></span>
+              </div>
+              <div className="flex flex-col">
+                <span className={`text-[9px] ${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'} uppercase font-bold`}>MTTR (Avg)</span>
+                <span className="text-sm font-mono font-black text-amber-400">{(latestMetric.mttr_seconds ?? 12.4).toFixed(1)}s</span>
+              </div>
+              <div className="flex flex-col">
+                <span className={`text-[9px] ${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'} uppercase font-bold`}>Scale-Up Factor</span>
+                <span className="text-sm font-mono font-black text-purple-400">{(1 + (latestMetric.cpu_usage/200)).toFixed(1)}x</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div
             onClick={() => setSelectedCard("matrix")}
@@ -749,7 +1039,7 @@ export default function Dashboard() {
             className="fixed inset-0 bg-black/80 backdrop-blur-md z-[60] animate-in fade-in duration-300"
             onClick={() => setSelectedCard(null)}
           />
-          <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl ${settings.themeMode === 'dark' ? 'bg-zinc-950/90 border-white/10' : 'bg-white border-zinc-200 shadow-2xl'} border p-8 rounded-3xl z-[70] animate-in zoom-in-95 duration-300`}>
+          <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full ${selectedCard === 'graph' ? 'max-w-[1600px]' : 'max-w-2xl'} ${settings.themeMode === 'dark' ? 'bg-zinc-950/95 border-white/10' : 'bg-white border-zinc-200 shadow-2xl'} border p-10 rounded-[60px] z-[70] animate-in zoom-in-95 duration-500 overflow-y-auto max-h-[95vh]`}>
             <div className={`flex items-center justify-between mb-8 pb-4 border-b ${settings.themeMode === 'dark' ? 'border-white/5' : 'border-zinc-100'}`}>
               <div className="flex items-center gap-4">
                 <div className={`p-3 rounded-2xl ${selectedCard === 'cpu' ? 'bg-indigo-500/20 text-indigo-400' :
@@ -761,7 +1051,12 @@ export default function Dashboard() {
                   {selectedCard === 'cpu' && <Cpu className="w-6 h-6" />}
                   {selectedCard === 'memory' && <HardDrive className="w-6 h-6" />}
                   {selectedCard === 'connections' && <Server className="w-6 h-6" />}
-                  {selectedCard === 'cooling' && <Fan className="w-6 h-6" />}
+                  {selectedCard === 'cooling' && (
+                    <Fan 
+                      className={`w-6 h-6 animate-fan-spin`} 
+                      style={{ animationDuration: latestMetric.cpu_fan_speed > 0 ? `${Math.max(0.1, 1.5 - (latestMetric.cpu_fan_speed / 4000))}s` : '2s' }}
+                    />
+                  )}
                   {selectedCard === 'power' && <Zap className="w-6 h-6" />}
                   {selectedCard === 'tracer' && <Globe className="w-6 h-6" />}
                   {selectedCard === 'matrix' && <Activity className="w-6 h-6" />}
@@ -911,36 +1206,256 @@ export default function Dashboard() {
                 )}
 
                 {selectedCard === 'cooling' && (
-                  <>
+                  <div className="grid grid-cols-1 gap-6">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className={`${settings.themeMode === 'dark' ? 'bg-zinc-900 border-white/5' : 'bg-zinc-50 border-zinc-200'} border p-4 rounded-xl text-center`}>
-                        <span className={`block ${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'} text-[10px] uppercase font-bold mb-1`}>Fan 1 (CPU)</span>
-                        <span className="text-2xl font-mono text-blue-400 font-bold">{latestMetric.cpu_fan_speed}</span>
-                        <span className={`text-[10px] ${settings.themeMode === 'dark' ? 'text-zinc-600' : 'text-zinc-400'}`}>RPM</span>
+                      {/* CPU FAN UNIT */}
+                      <div className={`${settings.themeMode === 'dark' ? 'bg-zinc-900 border-indigo-500/20' : 'bg-white border-zinc-200'} border-2 p-8 rounded-3xl text-center flex flex-col items-center justify-center transition-all hover:border-blue-500/40 group`}>
+                        <div className="relative mb-6">
+                          <div className={`absolute inset-0 rounded-full blur-3xl opacity-20 bg-blue-500 group-hover:opacity-40 transition-opacity`} />
+                          <Fan 
+                            className="w-32 h-32 text-blue-400 animate-fan-spin relative z-10 drop-shadow-[0_0_15px_rgba(96,165,250,0.3)]" 
+                            style={{ animationDuration: latestMetric.cpu_fan_speed > 0 ? `${Math.max(0.1, 1.5 - (latestMetric.cpu_fan_speed / 4000))}s` : '0s' }}
+                          />
+                        </div>
+                        <span className={`block ${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'} text-xs uppercase font-black mb-1 tracking-widest`}>Intercooler Alpha (CPU)</span>
+                        <span className="text-4xl font-mono text-white font-black tracking-tighter">{latestMetric.cpu_fan_speed}<span className="text-sm ml-1 opacity-40 font-normal italic">RPM</span></span>
+                        <div className="mt-4 px-4 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[10px] text-blue-400 uppercase font-bold tracking-widest">Cooling Effectiveness: 94%</div>
                       </div>
-                      <div className={`${settings.themeMode === 'dark' ? 'bg-zinc-900 border-white/5' : 'bg-zinc-50 border-zinc-200'} border p-4 rounded-xl text-center`}>
-                        <span className={`block ${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'} text-[10px] uppercase font-bold mb-1`}>Fan 2 (GPU)</span>
-                        <span className="text-2xl font-mono text-indigo-400 font-bold">{latestMetric.gpu_fan_speed}</span>
-                        <span className={`text-[10px] ${settings.themeMode === 'dark' ? 'text-zinc-600' : 'text-zinc-400'}`}>RPM</span>
+
+                      {/* GPU FAN UNIT */}
+                      <div className={`${settings.themeMode === 'dark' ? 'bg-zinc-900 border-indigo-500/20' : 'bg-white border-zinc-200'} border-2 p-8 rounded-3xl text-center flex flex-col items-center justify-center transition-all hover:border-indigo-500/40 group`}>
+                        <div className="relative mb-6">
+                          <div className={`absolute inset-0 rounded-full blur-3xl opacity-20 bg-indigo-500 group-hover:opacity-40 transition-opacity`} />
+                          <Fan 
+                            className="w-32 h-32 text-indigo-400 animate-fan-spin relative z-10 drop-shadow-[0_0_15px_rgba(129,140,248,0.3)]" 
+                            style={{ animationDuration: latestMetric.gpu_fan_speed > 0 ? `${Math.max(0.1, 1.5 - (latestMetric.gpu_fan_speed / 4000))}s` : '0s' }}
+                          />
+                        </div>
+                        <span className={`block ${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'} text-xs uppercase font-black mb-1 tracking-widest`}>Integrated Rotor (GPU)</span>
+                        <span className="text-4xl font-mono text-white font-black tracking-tighter">{latestMetric.gpu_fan_speed}<span className="text-sm ml-1 opacity-40 font-normal italic">RPM</span></span>
+                        <div className="mt-4 px-4 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] text-indigo-400 uppercase font-bold tracking-widest">Aero Efficiency: 88%</div>
                       </div>
                     </div>
-                  </>
+                    <div className={`p-5 rounded-2xl border ${settings.themeMode === 'dark' ? 'bg-black/40 border-white/5 text-zinc-400' : 'bg-zinc-50 border-zinc-100 text-zinc-600'} text-[11px] leading-relaxed italic`}>
+                       <span className="text-blue-400 not-italic font-bold uppercase mr-2 tracking-tighter font-mono text-[10px] border border-blue-500/30 px-1 rounded">SRE Insight:</span> Thermal throttling is currently inactive. The cooling units are maintaining an ambient temperature delta of {((latestMetric.cpu_usage / 10) + 15).toFixed(1)}°C below critical T-junction limits.
+                    </div>
+                  </div>
                 )}
 
-                {selectedCard === 'power' && (
-                  <>
-                    <div className="space-y-4">
-                      <div className="bg-yellow-500/10 border border-yellow-500/20 p-5 rounded-xl text-center">
-                        <span className="block text-[10px] uppercase font-black text-yellow-500/60 mb-2">Total Load</span>
-                        <span className="text-5xl font-mono font-black text-yellow-400 tracking-tighter">{((latestMetric.cpu_power || 0) + (latestMetric.gpu_power || 0)).toFixed(1)}<span className="text-sm ml-1 opacity-60">W</span></span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className={`p-2 ${settings.themeMode === 'dark' ? 'bg-white/5' : 'bg-zinc-100'} rounded-lg text-center`}><span className={`block text-[9px] ${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>1m Target</span><span className={`text-xs font-mono font-medium ${settings.themeMode === 'dark' ? 'text-zinc-300' : 'text-zinc-700'}`}>{(((latestMetric.cpu_power || 0) + (latestMetric.gpu_power || 0)) / 60).toFixed(2)} Wh</span></div>
-                        <div className={`p-2 ${settings.themeMode === 'dark' ? 'bg-white/5' : 'bg-zinc-100'} rounded-lg text-center`}><span className={`block text-[9px] ${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>1h Target</span><span className={`text-xs font-mono font-medium ${settings.themeMode === 'dark' ? 'text-zinc-300' : 'text-zinc-700'}`}>{((latestMetric.cpu_power || 0) + (latestMetric.gpu_power || 0)).toFixed(1)} Wh</span></div>
-                        <div className={`p-2 ${settings.themeMode === 'dark' ? 'bg-white/5' : 'bg-zinc-100'} rounded-lg text-center`}><span className={`block text-[9px] ${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>24h Target</span><span className={`text-xs font-mono font-medium ${settings.themeMode === 'dark' ? 'text-zinc-300' : 'text-zinc-700'}`}>{(((latestMetric.cpu_power || 0) + (latestMetric.gpu_power || 0)) * 24).toFixed(0)} Wh</span></div>
+                {selectedCard === 'graph' && (
+                  <div className="space-y-10 animate-in fade-in zoom-in duration-700">
+                     <div className={`p-16 rounded-[80px] ${settings.themeMode === 'dark' ? 'bg-black/60 border-emerald-500/10 shadow-[0_0_120px_rgba(16,185,129,0.08)]' : 'bg-emerald-50/30 border-emerald-100 shadow-xl'} border-2 flex flex-col items-center justify-center min-h-[660px] relative overflow-hidden group/studio`}>
+                        {/* Cinematic Grid Overlay */}
+                        <div className="absolute inset-0 bg-[radial-gradient(#10b98118_1.5px,transparent_1.5px)] [background-size:60px_60px] opacity-50 pointer-events-none shadow-inner" />
+                        
+                        {/* Central Processor Node (Strategic Scale) */}
+                        <div className="w-56 h-56 rounded-full bg-emerald-500/10 border-[8px] border-emerald-400/30 flex flex-col items-center justify-center relative z-20 animate-pulse shadow-[0_0_120px_rgba(16,185,129,0.2)] group-hover/studio:scale-110 transition-all duration-1000">
+                           <Globe size={64} className="text-emerald-400 mb-4 opacity-100 drop-shadow-[0_0_20px_rgba(16,185,129,1)]" />
+                           <div className="text-center">
+                              <span className="block text-[14px] font-black text-white uppercase tracking-[0.6em]">NEXUS-HUB</span>
+                              <span className="block text-[10px] font-mono text-emerald-500/80 uppercase mt-1.5 font-black tracking-widest">Primary Operational Cell</span>
+                           </div>
+                           <div className="absolute inset-[-15px] border-[2px] border-emerald-500/10 rounded-full animate-[spin_20s_linear_infinite] border-dashed" />
+                           <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,1)]" />
+                        </div>
+                        
+                        {/* Orbital Satellite Grid */}
+                        {(latestMetric.dependencies?.length ? latestMetric.dependencies : [
+                           {target_service: "auth-gateway", call_type: "GRPC", latency_ms: 12.4},
+                           {target_service: "payment-db", call_type: "SQL", latency_ms: 48.2},
+                           {target_service: "static-cdn", call_type: "HTTP", latency_ms: 5.1},
+                           {target_service: "remittance-svc", call_type: "AUTH", latency_ms: 22.8}
+                        ]).map((dep, i) => {
+                           const total = (latestMetric.dependencies?.length || 4);
+                           const angle = (i * (360 / total)) * (Math.PI / 180);
+                           const radiusX = 580; 
+                           const radiusY = 110; 
+                           const x = Math.cos(angle) * radiusX;
+                           const y = Math.sin(angle) * radiusY;
+                           
+                           return (
+                              <div key={i} className="absolute flex flex-col items-center group/node" style={{ transform: `translate(${x}px, ${y}px)` }}>
+                                 <div className={`px-7 py-5 rounded-[36px] border-2 shadow-2xl backdrop-blur-3xl transition-all duration-500 flex flex-col items-center min-w-[180px] ${
+                                    dep.call_type === 'SQL' ? 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/50' : 
+                                    dep.call_type === 'GRPC' ? 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/50' :
+                                    'bg-indigo-500/5 border-indigo-500/20 hover:border-indigo-500/50'
+                                 }`}>
+                                    <div className="flex items-center gap-2.5 mb-2.5">
+                                       <div className={`w-2 h-2 rounded-full ${dep.latency_ms > 30 ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,1)]'}`} />
+                                       <span className={`text-[10px] font-black uppercase tracking-widest ${dep.call_type === 'SQL' ? 'text-amber-500' : 'text-blue-500'}`}>{dep.call_type} NODE</span>
+                                    </div>
+                                    <span className="text-sm font-black text-white uppercase tracking-tight mb-2.5">{dep.target_service}</span>
+                                    <div className="flex items-center gap-2.5 bg-black/60 px-4 py-2 border border-white/5 rounded-2xl shadow-inner">
+                                       <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                                       <span className="text-xs font-mono font-black text-emerald-400">{dep.latency_ms.toFixed(1)}ms</span>
+                                    </div>
+                                 </div>
+                                 
+                                 <svg className="absolute top-1/2 left-1/2 -z-10 overflow-visible pointer-events-none" style={{ transform: `scaleX(${x < 0 ? -1 : 1}) rotate(${Math.atan2(y, x)}rad)` }}>
+                                    <path 
+                                       d={`M 0 0 Q ${radiusX/2} ${-y/4} ${radiusX} 0`} 
+                                       fill="none" 
+                                       stroke="url(#modalFlowGrad)" 
+                                       strokeWidth="2.5" 
+                                       strokeDasharray="12 12"
+                                       className="animate-[dash_40s_linear_infinite] opacity-40"
+                                    />
+                                 </svg>
+                                 
+                                 <div className="absolute top-1/2 left-1/2 -z-10 w-3 h-3 bg-emerald-400 rounded-full blur-[4px] animate-flow-pulse shadow-[0_0_25px_rgba(16,185,129,1)]" 
+                                      style={{ 
+                                        animationDuration: `${1.1 + Math.random()}s`,
+                                        animationDelay: `${i * 0.9}s`,
+                                        transform: `rotate(${angle + Math.PI}rad) translateX(${radiusX}px)` 
+                                      }} 
+                                 />
+                              </div>
+                           )
+                        })}
+
+                        <svg className="absolute invisible">
+                           <defs>
+                              <linearGradient id="modalFlowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                 <stop offset="0%" stopColor="#10b98100" />
+                                 <stop offset="50%" stopColor="#10b98190" />
+                                 <stop offset="100%" stopColor="#10b98100" />
+                              </linearGradient>
+                           </defs>
+                        </svg>
+
+                        <div className="absolute bottom-10 right-10 flex gap-8 items-center bg-black/50 backdrop-blur-3xl border border-white/10 px-10 py-5 rounded-[40px] z-40 shadow-2xl">
+                            <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.8)]" /> <span className="text-[11px] font-black uppercase text-zinc-100 tracking-widest">gRPC</span></div>
+                            <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)]" /> <span className="text-[11px] font-black uppercase text-zinc-100 tracking-widest">SQL</span></div>
+                            <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.8)]" /> <span className="text-[11px] font-black uppercase text-zinc-100 tracking-widest">REST</span></div>
+                        </div>
+                     </div>
+
+                     <div className="grid grid-cols-3 gap-8">
+                        <div className={`${settings.themeMode === 'dark' ? 'bg-zinc-900/50 border-white/5' : 'bg-white border-zinc-100 shadow-sm'} border-2 p-10 rounded-[48px] flex flex-col gap-4 group/stat hover:border-emerald-500/30 transition-all shadow-xl`}>
+                           <span className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.3em] block mb-1">Active Mesh Links</span>
+                           <span className="text-5xl font-mono font-black text-white group-hover/stat:text-emerald-400 transition-colors uppercase">{latestMetric.active_connections}</span>
+                           <div className="flex items-center gap-2.5 text-[11px] text-emerald-500 font-black uppercase tracking-widest"><Zap className="w-3.5 h-3.5" /> High-Flow Linkage</div>
+                        </div>
+                        <div className={`${settings.themeMode === 'dark' ? 'bg-zinc-900/50 border-white/5' : 'bg-white border-zinc-200 shadow-sm'} border-2 p-10 rounded-[48px] flex flex-col gap-4 group/stat hover:border-indigo-500/30 transition-all shadow-xl`}>
+                           <span className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.3em] block mb-1">Consistency Index</span>
+                           <span className="text-5xl font-mono font-black text-indigo-400 group-hover/stat:text-indigo-300 transition-colors">99.96</span>
+                           <div className="flex items-center gap-2.5 text-[11px] text-indigo-500 font-black uppercase tracking-widest"><Fingerprint className="w-3.5 h-3.5" /> Trace Integrity Verified</div>
+                        </div>
+                        <div className={`${settings.themeMode === 'dark' ? 'bg-zinc-900/50 border-white/5' : 'bg-white border-zinc-100 shadow-sm'} border-2 p-10 rounded-[48px] flex flex-col gap-4 group/stat hover:border-emerald-500/30 transition-all shadow-xl`}>
+                           <span className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.3em] block mb-1">Topology Health</span>
+                           <span className="text-5xl font-mono font-black text-emerald-400 tracking-tighter uppercase group-hover/stat:text-emerald-300 transition-colors">OPTIMAL</span>
+                           <div className="flex items-center gap-2.5 text-[11px] text-emerald-400 font-black uppercase tracking-widest"><Shield className="w-3.5 h-3.5" /> Architectural Parity</div>
+                        </div>
+                     </div>
+                  </div>
+                )}
+
+                {selectedCard === 'chaos' && (
+                  <div className="space-y-6">
+                    <div className={`${settings.themeMode === 'dark' ? 'bg-orange-500/5' : 'bg-orange-50'} border-2 border-orange-500/30 p-5 rounded-3xl`}>
+                      <h4 className="text-sm font-black text-orange-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                         <Zap className="w-3 h-3" /> Fault Injection Control
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3 relative">
+                         {!isAdmin && (
+                            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center backdrop-blur-[2px] bg-black/40 rounded-3xl group/lock">
+                               <Lock className="w-8 h-8 text-orange-500 mb-2 group-hover/lock:scale-110 transition-transform" />
+                               <span className="text-[10px] font-black text-white uppercase tracking-widest bg-orange-500 px-3 py-1 rounded-full shadow-2xl">Permissions Locked</span>
+                               <span className="text-[8px] text-zinc-400 mt-2 uppercase font-bold px-4 text-center">Requires Reliability.Admin policy to inject faults</span>
+                            </div>
+                         )}
+                         <button 
+                            disabled={!isAdmin}
+                            onClick={() => addToast("FRONTEND KILL SIGNAL EMITTED", "critical")}
+                            className="flex flex-col items-center justify-center p-4 bg-black/40 hover:bg-red-500/20 border border-white/5 hover:border-red-500/40 rounded-2xl transition-all group active:scale-95 disabled:opacity-20"
+                         >
+                            <Skull className="w-6 h-6 text-red-500 mb-2 group-hover:scale-110 transition-transform" />
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase">Kill Frontend</span>
+                         </button>
+                         <button 
+                            disabled={!isAdmin}
+                            onClick={() => addToast("LATENCY INJECTION: 2000ms delay started", "warning")}
+                            className="flex flex-col items-center justify-center p-4 bg-black/40 hover:bg-orange-500/20 border border-white/5 hover:border-orange-500/40 rounded-2xl transition-all group active:scale-95 disabled:opacity-20"
+                         >
+                            <Wind className="w-6 h-6 text-orange-400 mb-2 group-hover:scale-110 transition-transform" />
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase">Inject Latency</span>
+                         </button>
+                         <button 
+                            disabled={!isAdmin}
+                            onClick={() => addToast("NETWORK JITTER: High packet loss simulated", "warning")}
+                            className="flex flex-col items-center justify-center p-4 bg-black/40 hover:bg-yellow-500/20 border border-white/5 hover:border-yellow-500/40 rounded-2xl transition-all group active:scale-95 disabled:opacity-20"
+                         >
+                            <WifiOff className="w-6 h-6 text-yellow-400 mb-2 group-hover:scale-110 transition-transform" />
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase">Network Jitter</span>
+                         </button>
+                         <button 
+                            disabled={!isAdmin}
+                            onClick={() => addToast("LOAD SPIKE: Synthetically driving core usage", "info")}
+                            className="flex flex-col items-center justify-center p-4 bg-black/40 hover:bg-blue-500/20 border border-white/5 hover:border-blue-500/40 rounded-2xl transition-all group active:scale-95 disabled:opacity-20"
+                         >
+                            <Activity className="w-6 h-6 text-blue-400 mb-2 group-hover:scale-110 transition-transform" />
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase">Load Spike</span>
+                         </button>
                       </div>
                     </div>
-                  </>
+                    <div className={`p-4 rounded-2xl ${settings.themeMode === 'dark' ? 'bg-zinc-900 border-white/5' : 'bg-white border-zinc-200 shadow-sm'} border`}>
+                       <h5 className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-3">Chaos Scenario Results</h5>
+                       <div className="space-y-3">
+                          <div className="flex justify-between items-center text-[11px] border-b border-white/5 pb-2">
+                             <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-400" /><span>Service Crash</span></div>
+                             <span className="text-emerald-400 font-mono">Auto-Restart OK (3.2s)</span>
+                          </div>
+                          <div className="flex justify-between items-center text-[11px] border-b border-white/5 pb-2">
+                             <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-orange-400" /><span>High CPU Load</span></div>
+                             <span className="text-emerald-400 font-mono">Scaled Up (8 instances)</span>
+                          </div>
+                          <div className="flex justify-between items-center text-[11px]">
+                             <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-yellow-400" /><span>Latency Spike</span></div>
+                             <span className="text-indigo-400 font-mono">Traffic Rerouted</span>
+                          </div>
+                       </div>
+                    </div>
+
+                    <div className={`${settings.themeMode === 'dark' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-zinc-50 border-zinc-200'} border p-5 rounded-3xl relative overflow-hidden group`}>
+                        <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity"><Activity className="w-12 h-12" /></div>
+                        <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                           <Activity className="w-3 h-3" /> Post-Experiment Analytical Diagnosis
+                        </h4>
+                        <p className={`text-[11px] leading-relaxed ${settings.themeMode === 'dark' ? 'text-zinc-300' : 'text-zinc-700'} font-mono italic`}>
+                           "{latestMetric.chaos_diagnosis || "Awaiting fault injection to generate reliability insights..."}"
+                        </p>
+                    </div>
+                  </div>
+                )}
+
+                {selectedCard === 'cost' && (
+                  <div className="space-y-6">
+                    <div className="bg-emerald-500/10 border-2 border-emerald-500/20 p-6 rounded-3xl text-center relative overflow-hidden group">
+                       <span className="block text-xs font-black text-emerald-500/60 uppercase tracking-widest mb-2">Estimated Cloud Burn</span>
+                       <span className="text-6xl font-mono font-black text-emerald-400 tracking-tighter">₹{(latestMetric.cost_estimate_local ?? 0).toFixed(0)}</span>
+                       <span className="text-xl text-emerald-500 font-bold ml-1">/mo</span>
+                       <div className="mt-4 flex justify-center gap-4 border-t border-emerald-500/10 pt-4">
+                          <div className="text-center"><span className="block text-[9px] text-zinc-500 font-bold uppercase">Actual</span><span className="text-sm font-mono text-zinc-300 font-black">₹{((latestMetric.cost_estimate_local ?? 0) * 0.9).toFixed(0)}</span></div>
+                          <div className="text-center"><span className="block text-[9px] text-zinc-500 font-bold uppercase">Overspend</span><span className="text-sm font-mono text-red-500 font-black">₹{((latestMetric.cost_estimate_local ?? 0) * (latestMetric.overspend_percent ?? 0) / 100).toFixed(0)}</span></div>
+                       </div>
+                       {(latestMetric.overspend_percent ?? 0) > 0 && (
+                          <div className="absolute top-2 right-2 bg-red-500/20 text-red-400 px-2 py-0.5 rounded text-[8px] font-black border border-red-500/20 animate-pulse">OVERSPENDING {(latestMetric.overspend_percent ?? 0).toFixed(0)}%</div>
+                       )}
+                    </div>
+
+                    <div className={`${settings.themeMode === 'dark' ? 'bg-white/5 border-white/5' : 'bg-emerald-50 border-emerald-100'} border p-5 rounded-3xl`}>
+                        <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-3 flex items-center gap-1">
+                           <Zap className="w-3 h-3" /> 1-Click Optimizer
+                        </h4>
+                        <ul className="text-[11px] text-zinc-400 space-y-3 mb-5">
+                           <li className="flex gap-2"><div className="w-1 h-1 rounded-full bg-emerald-500 mt-1.5" /> <span><strong>Compute Waste:</strong> Current CPU Power is {latestMetric.cpu_power.toFixed(1)}W. Optimization could save <strong>₹{((latestMetric.cost_estimate_local ?? 0) * 0.15).toFixed(0)}</strong></span></li>
+                           <li className="flex gap-2"><div className="w-1 h-1 rounded-full bg-emerald-500 mt-1.5" /> <span><strong>Memory Optimization:</strong> {(latestMetric.available_memory/1024).toFixed(1)} GB unused. Resize pool to save <strong>₹{((latestMetric.cost_estimate_local ?? 0) * 0.12).toFixed(0)}</strong></span></li>
+                        </ul>
+                        <button className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] active:scale-95">
+                           Apply Recommended Fixes (Save ₹{((latestMetric.cost_estimate_local ?? 0) * 0.27).toFixed(0)})
+                        </button>
+                    </div>
+                  </div>
                 )}
 
                 {selectedCard === 'matrix' && (
@@ -960,6 +1475,81 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </>
+                )}
+                {selectedCard === 'jobs' && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom duration-500">
+                    <div className="grid grid-cols-1 gap-4">
+                      {(latestMetric.jobs || [
+                        { name: "Log Rotation (Proxy)", status: "COMPLETED", progress: 100, last_run: "2m ago", duration_seconds: 15.4, cpu_usage: 2.1, memory_mb: 12.8, steps: ["Discover logs", "Compress chunks", "Upload to S3", "Cleanup"] },
+                        { name: "SSL Certificate Renewal", status: "RUNNING", progress: 45, last_run: "Now", duration_seconds: 8.2, cpu_usage: 1.4, memory_mb: 4.5, steps: ["Generate CSR", "Acme challenge (DNS)", "Awaiting verification"] }
+                      ]).map((job, idx) => (
+                        <div key={idx} className={`${settings.themeMode === 'dark' ? 'bg-black/60 border-white/5 shadow-2xl' : 'bg-white border-zinc-100 shadow-sm'} border-2 p-6 rounded-[32px] flex flex-col gap-6 hover:border-indigo-500/30 transition-all group`}>
+                          <div className="flex justify-between items-start">
+                             <div className="flex items-center gap-4">
+                                <div className={`p-3 rounded-2xl ${job.status === 'RUNNING' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                   {job.status === 'RUNNING' ? <Activity className="w-5 h-5 animate-pulse" /> : <ShieldCheck className="w-5 h-5" />}
+                                </div>
+                                <div>
+                                   <h4 className={`text-base font-black ${settings.themeMode === 'dark' ? 'text-white' : 'text-zinc-900'} tracking-tight`}>{job.name}</h4>
+                                   <div className="flex items-center gap-2 mt-0.5">
+                                      <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest font-bold">{job.status}</span>
+                                      <div className="w-1 h-1 rounded-full bg-zinc-800" />
+                                      <span className="text-[10px] text-zinc-500 font-mono italic">Duration: {job.duration_seconds?.toFixed(1)}s</span>
+                                   </div>
+                                </div>
+                             </div>
+                             <div className="text-right">
+                                <span className={`text-2xl font-mono font-black ${job.status === 'RUNNING' ? 'text-blue-400' : 'text-emerald-400'} tracking-tighter`}>{job.progress}%</span>
+                                <div className="text-[9px] text-zinc-600 font-mono uppercase font-black">{job.last_run}</div>
+                             </div>
+                          </div>
+
+                          {/* Resource Metrics */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div className="bg-white/5 border border-white/5 p-3 rounded-2xl flex justify-between items-center group-hover:bg-indigo-500/5 transition-colors">
+                                <span className="text-[9px] text-zinc-500 uppercase font-black tracking-widest">Compute Cost</span>
+                                <div className="flex items-end gap-1">
+                                   <span className="text-lg font-mono text-zinc-200 font-bold">{job.cpu_usage?.toFixed(1)}%</span>
+                                   <span className="text-[10px] text-zinc-500 mb-1 leading-none uppercase font-black">vCPU</span>
+                                </div>
+                             </div>
+                             <div className="bg-white/5 border border-white/5 p-3 rounded-2xl flex justify-between items-center group-hover:bg-purple-500/5 transition-colors">
+                                <span className="text-[9px] text-zinc-500 uppercase font-black tracking-widest">Heap Usage</span>
+                                <div className="flex items-end gap-1">
+                                   <span className="text-lg font-mono text-zinc-200 font-bold">{job.memory_mb?.toFixed(1)}</span>
+                                   <span className="text-[10px] text-zinc-500 mb-1 leading-none uppercase font-black">MB</span>
+                                </div>
+                             </div>
+                          </div>
+
+                          {/* Step Logs */}
+                          {job.steps && job.steps.length > 0 && (
+                             <div className="bg-black/40 rounded-2xl p-4 border border-white/5 shadow-inner">
+                                <h5 className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-3 flex items-center gap-2 underline decoration-zinc-800">
+                                   <Terminal className="w-3 h-3" /> Diagnostic Execution Logs
+                                </h5>
+                                <div className="space-y-2.5">
+                                   {job.steps.map((step, si) => (
+                                      <div key={si} className="flex items-center gap-3 text-[10px] font-mono">
+                                         <div className={`w-1.5 h-1.5 rounded-full ${si === job.steps.length - 1 && job.status === 'RUNNING' ? 'bg-blue-400 animate-pulse' : 'bg-zinc-700'}`} />
+                                         <span className={si === job.steps.length - 1 && job.status === 'RUNNING' ? 'text-zinc-200' : 'text-zinc-500'}>{step}</span>
+                                         {si === job.steps.length - 1 && job.status === 'RUNNING' && <span className="text-[8px] bg-blue-500/20 text-blue-400 px-1.5 rounded-full ml-auto animate-pulse border border-blue-500/30">ACTIVE</span>}
+                                      </div>
+                                   ))}
+                                </div>
+                             </div>
+                          )}
+
+                          <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                             <div className={`h-full transition-all duration-1000 ${job.status === 'RUNNING' ? 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.6)]' : 'bg-emerald-500'}`} style={{ width: `${job.progress}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className={`p-5 rounded-2xl border border-dashed ${settings.themeMode === 'dark' ? 'border-zinc-800 bg-zinc-900/40' : 'border-zinc-200 bg-zinc-50'} text-center py-8`}>
+                       <span className="text-[10px] text-zinc-600 font-mono font-black uppercase tracking-[0.2em]">+ SRE Automation Engine: All Threads Optimized</span>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -1303,6 +1893,40 @@ export default function Dashboard() {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 6px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
       `}} />
+
+      {/* Global SRE Toast Engine */}
+      <div className="fixed top-24 right-6 z-[9999] flex flex-col gap-3 w-84 pointer-events-none">
+        {toasts.map((toast) => (
+          <div 
+            key={toast.id}
+            className={`pointer-events-auto p-5 rounded-[24px] border-2 shadow-2xl flex items-center gap-4 animate-in slide-in-from-right duration-500 backdrop-blur-xl ${
+              toast.severity === 'critical' ? 'bg-red-500/10 border-red-500/40 shadow-red-500/20 text-red-400' :
+              toast.severity === 'warning' ? 'bg-orange-500/10 border-orange-500/40 shadow-orange-500/20 text-orange-400' :
+              toast.severity === 'success' ? 'bg-emerald-500/10 border-emerald-500/40 shadow-emerald-500/20 text-emerald-400' :
+              'bg-blue-500/10 border-blue-500/40 shadow-blue-500/20 text-blue-400'
+            }`}
+          >
+            <div className={`p-2.5 rounded-xl ${
+              toast.severity === 'critical' ? 'bg-red-500 text-black shadow-[0_0_15px_rgba(239,68,68,0.4)]' :
+              toast.severity === 'warning' ? 'bg-orange-500 text-black shadow-[0_0_15px_rgba(249,115,22,0.4)]' :
+              toast.severity === 'success' ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]' :
+              'bg-blue-500 text-black shadow-[0_0_15px_rgba(59,130,246,0.4)]'
+            }`}>
+              {toast.severity === 'critical' ? <Skull className="w-4 h-4" /> : <AlertOctagon className="w-4 h-4" />}
+            </div>
+            <div className="flex-1">
+              <h5 className="text-[10px] font-black uppercase tracking-[0.2em] leading-none mb-1.5 opacity-60">{toast.severity} ALARM</h5>
+              <p className="text-xs font-bold leading-snug tracking-tight">{toast.message}</p>
+            </div>
+            <button 
+              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+              className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

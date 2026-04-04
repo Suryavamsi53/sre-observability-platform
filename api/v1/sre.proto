@@ -67,6 +67,51 @@ message Metric {
   // Hardware Specifics
   string cpu_model = 31;
   int32 cpu_cores = 32;
+
+  // Real-time SRE metrics
+  float mttr_seconds = 33;
+  float error_budget_percent = 34;
+  float uptime_percent = 35;
+  float cost_estimate_local = 36;
+  float overspend_percent = 37;
+  
+  // Real-time Automation Jobs
+  repeated Job jobs = 38;
+  
+  // Chaos Analytical Diagnosis
+  string chaos_diagnosis = 39;
+  
+  // Distributed Tracing (Observability Engine)
+  string trace_id = 40;
+  
+  // Release & Deployment Monitoring
+  Release release = 41;
+  
+  // Service Visualization (Dependency Graph)
+  repeated Dependency dependencies = 42;
+}
+
+message Release {
+  string version = 1;
+  string status = 2; // CANARY, PRODUCTION, ROLLBACK, FAILED
+  int64 deployed_at = 3;
+}
+
+message Dependency {
+  string target_service = 1;
+  string call_type = 2; // GRPC, HTTP, SQL
+  double latency_ms = 3;
+}
+
+message Job {
+  string name = 1;
+  string status = 2; // RUNNING, COMPLETED, FAILED
+  int32 progress = 3;
+  string last_run = 4;
+  float duration_seconds = 5;
+  double cpu_usage = 6;
+  double memory_mb = 7;
+  repeated string steps = 8;
 }
 
 message Alert {
