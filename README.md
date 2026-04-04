@@ -158,16 +158,22 @@ Access the application at: `http://localhost:3000`
 
 ---
 
+## 📑 Detailed Technical Manual
+For a deeper dive into the system's architecture, telemetry lifecycle, and design decisions, please see the [**DOCUMENTATION.md**](./DOCUMENTATION.md).
+
+---
+
 ## 🛠 Advanced Features Developed
 
-* **Real-Time Hardware Interfacing**: The Agent intrinsically parses actual live metrics (CPU/GPU fan speeds RPM, battery wattage power vectors) mapping directly from raw Linux Kernel paths (`/sys/class/hwmon` and `power_supply`).
-* **High-Frequency Graph Telemetry**: Emulates ultra-smooth standard system-monitors (Windows Task Manager) displaying rapid data fluidity via synchronized sub-second backend sampling (10 Hz/FPS) bound with granular Unix millisecond precisions.
-* **Intelligent Event Broker Flushes**: Tuned the native Kafka consumer segment properties (`MinBytes: 1`) to eliminate aggressive buffer bloat, granting strictly zero-latency EventSource (SSE) pipeline propagation down to edge React clients.
-* **Interactive Drill-down Diagnostics**: The frontend utilizes glassmorphic immersive UI state modals detailing hardware performance, ranging from isolated worker TCP socket states, kernel logic layers (System/User/IOWait), to raw per-minute power projections.
-* **gRPC Streaming**: Instead of unary RPCs which carry strict request-response paradigms, the agent streams large batches of local telemetry smoothly to alleviate GC pausing on Collector.
-* **Event-Driven Fault Tolerance**: Analysis and Healing do not block UI execution or pipeline workflows; decoupled via Kafka for ultimate replayability or asynchronous bursts handling.
-* **Graceful Degradation**: Built-in channel signals (`os.Signal`) bound to waitgroups or context tree cancellations ensuring in-flight messages are flushed/processed to Kafka on deployment restarts.
-* **Multi-stage Docker strategy**: Designed `Dockerfile` using `ARG SERVICE_NAME` variable allowing a single declarative instruction source for all internal golang deployments. 
+* **Strategic Topology (Service Mesh Studio)**: Real-time, interactive visualization of service dependencies (gRPC, SQL, REST) with Mesh Stability tracking and correlation analysis.
+* **SRE Automation Engine**: Integrated tracking of background automation tasks (Log Rotation, SSL Renewal) with per-job resource consumption and detailed execution logs.
+* **Chaos Lab (Fault Injection)**: Mission-control grade interface for administrators to simulate service failures, latency spikes, and network jitter to validate system resilience.
+* **Financial Observability (Cost HUD)**: Real-time estimation of cloud resource burn (₹) with predictive overspend detection and 1-click optimization recommendations.
+* **Reliability SLIs**: Built-in monitoring of critical SRE metrics including System Uptime, Error Budgets, and Mean Time To Recovery (MTTR).
+* **Deep Hardware Interfacing**: The Agent parses live metrics (CPU/GPU fan speeds RPM, battery wattage, internal thermal state) mapping directly from raw Linux Kernel paths.
+* **Internet Tracer (Network HUD)**: Integrated real-time network throughput and a visual **Hop Graph** (Traceroute) showing the path from host to target gateway.
+* **Deep Processor Analytics**: Built-in support for multi-core hardware, featuring live thread-count tracking and a "Top Resource Consumers" process list.
+* **Theme-Aware Dashboard**: Comprehensive Dark/Light theme system utilizing system-preference persistence and curated glassmorphic UI color tokens.
 
 ---
 
@@ -175,34 +181,29 @@ Access the application at: `http://localhost:3000`
 
 * **Backend:** Go (Golang)
 * **Internal Communication:** gRPC, Protocol Buffers (Protobuf)
-* **API Gateway:** REST/SSE streaming bridge 
-* **Frontend:** Next.js (React), Tailwind CSS, Recharts
-* **Observability:** Prometheus, Grafana
+* **Message Broker:** Apache Kafka (Coupled with Zookeeper)
+* **API Gateway:** HTTP REST / Server-Sent Events (SSE) bridge 
+* **Frontend:** Next.js 14, React, Tailwind CSS, Recharts
 * **Containerization:** Docker, Docker Compose
-* **Orchestration:** Kubernetes (Optional local deployment)
+* **Orchestration:** Kubernetes (Ready-to-deploy Helm/YAML manifests)
 
 ---
 
-## 🔮 Future Improvements / Roadmap
+## 🔮 Future Improvements / Roadmap (Current Progress 85%)
 
-* Integrate strict OpenTelemetry tracing across all inter-service boundaries.
-* Persist historical metrics and incidents in PostgreSQL/TimescaleDB.
-* Build a rules-engine UI to dynamically update anomaly detection thresholds.
-* Provide Helm charts for full Kubernetes orchestration.
-* Add user authentication and Role-Based Access Control (RBAC).
-
----
-
-## 🧠 Learning Outcomes
-
-This project was built to deepen practical knowledge in modern infrastructure engineering:
-* **Distributed Systems:** Gained experience handling asynchronous communication, fault tolerance, and eventual consistency between independent components.
-* **gRPC Usage:** Implemented bi-directional and server-side streaming using strongly-typed Protocol Buffers over HTTP/2.
-* **Observability Concepts:** Modeled structured telemetry generation, metrics aggregation, and actionable alerting workflows.
-* **Backend System Design:** Understood the trade-offs of microservices orchestration, decoupled message passing, and real-time client propagation.
+* [x] Strategic Topology & Service Mesh visualization.
+* [x] SRE Automation Jobs & Resource tracking.
+* [x] Financial Observability (Cost HUD).
+* [x] Chaos Engineering Lab & Analytical Diagnosis.
+* [x] Real-time Search & Filtering across Incident Feed.
+* [x] Deep PID-level process monitoring.
+* [x] Internet Traceroute visualization.
+* [ ] Integrate strict OpenTelemetry tracing across all inter-service boundaries.
+* [ ] Persist historical metrics and incidents in PostgreSQL/TimescaleDB.
+* [ ] Build a rules-engine UI to dynamically update anomaly detection thresholds.
 
 ---
 
 ## 📝 Disclaimer
 
-*This project was initially scaffolded with AI-assisted tools (Gemini / Antigravity) and further refined, extended, and understood as part of hands-on learning in backend systems and SRE practices.*
+*This project was initially scaffolded with AI-assisted tools (Gemini / Antigravity) and further refined, extended, and optimized as part of high-fidelity backend systems and SRE practice development.*
