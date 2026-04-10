@@ -1,2 +1,35 @@
-b51bda8d Removed node_modules and added gitignore
-5d88d573 Initial commit: SRE observability platform
+commit 39df7d16b00ebb25e5108722c22cc3576828c6de
+Author: Suryavamsi53 <suryavaggu@outlook.com>
+Date:   Sat Apr 4 23:17:56 2026 +0530
+
+    docs: Comprehensive documentation update
+
+commit 8a2c898c0879eb86e2505473a2d0636cfb6afdf2
+Author: Suryavamsi53 <suryavaggu@outlook.com>
+Date:   Sat Apr 4 23:16:57 2026 +0530
+
+    docs: Update README and DOCUMENTATION with new SRE features
+
+commit b64f41cce98c4d6e7338175e3839552bc675feaa
+Author: Suryavamsi53 <suryavaggu@outlook.com>
+Date:   Sat Apr 4 06:54:21 2026 +0530
+
+    Dashboard: Add Internet Tracer, CPU deep telemetry, and real-time search filtering.
+    
+    Key features:
+    - Integrated real-time network throughput and hop graph in Internet Tracer card.
+    - Implemented process list and thread analytics for Intel i5-10th Gen 4-core hardware.
+    - Added global search capabilities to filter incidents and system logs.
+    - Enhanced telemetry pipeline with defensive data handling and hardware-specific diagnostics.
+
+commit a9991ee716a6d52cfeab5999448fb925f4cdac4d
+Author: Suryavamsi53 <suryavaggu@outlook.com>
+Date:   Fri Apr 3 11:47:43 2026 +0530
+
+    feat: Add interactive profile management, auth walls, deep memory telemetry, Y-Axis chart bounds fixes, and mermaid architecture diagram.
+
+commit 32f8d4172225a4dc661ceacd7390fd340fc38eae
+Author: Suryavamsi53 <suryavaggu@outlook.com>
+Date:   Thu Apr 2 19:33:21 2026 +0530
+
+    update: fix real-time metrics and backend services

@@ -707,13 +707,13 @@ export default function Dashboard() {
           </div>
           <div
             onClick={() => setSelectedCard("graph")}
-            className={`lg:col-span-3 ${settings.themeMode === 'dark' ? 'bg-white/[0.02] border-white/5 hover:border-emerald-500/30' : 'bg-white border-zinc-200 shadow-sm hover:border-emerald-300'} border rounded-3xl p-8 relative overflow-hidden group transition-all cursor-pointer active:scale-95 min-h-[380px] flex flex-col`}
+            className={`lg:col-span-3 ${settings.themeMode === 'dark' ? 'bg-white/[0.02] border-white/5 hover:border-emerald-500/30' : 'bg-white border-zinc-200 shadow-sm hover:border-emerald-300'} border rounded-3xl p-6 relative overflow-hidden group transition-all cursor-pointer active:scale-95 min-h-[340px] flex flex-col`}
           >
-            <div className="flex justify-between items-start mb-4 relative z-10">
-              <div className="flex items-center gap-4">
-                <div className={`${settings.themeMode === 'dark' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-600'} p-3 rounded-2xl border border-emerald-500/20`}><Globe className="w-6 h-6" /></div>
+            <div className="flex justify-between items-start mb-2 relative z-10">
+              <div className="flex items-center gap-3">
+                <div className={`${settings.themeMode === 'dark' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-600'} p-2 rounded-xl border border-emerald-500/20`}><Globe className="w-5 h-5" /></div>
                 <div>
-                   <h3 className={`text-lg font-black ${settings.themeMode === 'dark' ? 'text-zinc-100' : 'text-zinc-900'} uppercase tracking-[0.2em]`}>Strategic Topology</h3>
+                   <h3 className={`text-md font-black ${settings.themeMode === 'dark' ? 'text-zinc-100' : 'text-zinc-900'} uppercase tracking-[0.2em]`}>Strategic Topology</h3>
                    <span className="text-[10px] text-zinc-500 font-mono italic opacity-80 uppercase tracking-widest">Global Correlation Mesh • Primary Node: {latestMetric.service_name}</span>
                 </div>
               </div>
@@ -725,14 +725,14 @@ export default function Dashboard() {
               </div>
             </div>
             
-            <div className="flex-1 flex items-center justify-center relative mt-8 overflow-hidden">
+            <div className="flex-1 flex items-center justify-center relative mt-4 overflow-hidden">
                {/* Strategic Grid Background */}
-               <div className="absolute inset-0 bg-[radial-gradient(#10b98110_1.5px,transparent_1.5px)] [background-size:60px_60px] opacity-40 shadow-inner" />
+               <div className="absolute inset-0 bg-[radial-gradient(#10b98110_1px,transparent_1px)] [background-size:40px_40px] opacity-40 shadow-inner" />
 
-               {/* Center Hub: GATEWAY (XL) */}
-               <div className="w-28 h-28 rounded-full bg-emerald-500/10 border-4 border-emerald-400/30 flex flex-col items-center justify-center relative z-20 animate-pulse shadow-[0_0_80px_rgba(16,185,129,0.15)] group-hover:scale-110 transition-transform duration-700">
-                  <div className="w-4 h-4 rounded-full bg-emerald-400 animate-ping absolute -top-1" />
-                  <span className="text-[11px] font-black text-white uppercase tracking-[0.3em] mb-1">HUB</span>
+               {/* Center Hub: GATEWAY (L) */}
+               <div className="w-20 h-20 rounded-full bg-emerald-500/10 border-4 border-emerald-400/30 flex flex-col items-center justify-center relative z-20 animate-pulse shadow-[0_0_60px_rgba(16,185,129,0.15)] group-hover:scale-110 transition-transform duration-700">
+                  <div className="w-3 h-3 rounded-full bg-emerald-400 animate-ping absolute -top-1" />
+                  <span className="text-[9px] font-black text-white uppercase tracking-[0.3em] mb-1">HUB</span>
                   <div className="flex gap-1.5">
                      {[1,2,3].map(i => <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === 2 ? 'bg-emerald-400' : 'bg-emerald-400/40'}`} />)}
                   </div>
@@ -747,37 +747,37 @@ export default function Dashboard() {
                ]).map((dep, i) => {
                   const total = (latestMetric.dependencies?.length || 4);
                   const angle = (i * (360 / total)) * (Math.PI / 180);
-                  const radiusX = 320; // Strategic Horizontal Spread
-                  const radiusY = 130;  // Increased Vertical Depth
+                  const radiusX = 220; // Reduced Spread
+                  const radiusY = 90;  
                   const x = Math.cos(angle) * radiusX;
                   const y = Math.sin(angle) * radiusY;
                   
                   return (
                      <div key={i} className="absolute transition-all duration-1000 group/node" style={{ transform: `translate(${x}px, ${y}px)` }}>
-                        <div className={`p-6 rounded-[32px] shadow-2xl backdrop-blur-3xl transition-all duration-500 flex flex-col items-center relative z-30 min-w-[200px] ${
+                        <div className={`p-4 rounded-[24px] shadow-xl backdrop-blur-3xl transition-all duration-500 flex flex-col items-center relative z-30 min-w-[140px] ${
                           settings.themeMode === 'dark' ? 'bg-black/90 border-white/10 hover:border-emerald-500/50' : 'bg-white border-zinc-200 hover:border-emerald-300'
                         } border-2 group-hover/node:scale-110 group-hover/node:z-40`}>
-                           <div className="flex items-center gap-2 mb-3">
-                              {dep.call_type === 'GRPC' && <Share2 className="w-3.5 h-3.5 text-blue-400" />}
-                              {dep.call_type === 'SQL' && <Database className="w-3.5 h-3.5 text-amber-500" />}
-                              {dep.call_type === 'HTTP' && <Globe className="w-3.5 h-3.5 text-emerald-400" />}
-                              {dep.call_type === 'REST' && <Globe className="w-3.5 h-3.5 text-indigo-400" />}
-                              <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${
+                           <div className="flex items-center gap-1.5 mb-2">
+                              {dep.call_type === 'GRPC' && <Share2 className="w-3 h-3 text-blue-400" />}
+                              {dep.call_type === 'SQL' && <Database className="w-3 h-3 text-amber-500" />}
+                              {dep.call_type === 'HTTP' && <Globe className="w-3 h-3 text-emerald-400" />}
+                              {dep.call_type === 'REST' && <Globe className="w-3 h-3 text-indigo-400" />}
+                              <span className={`text-[8px] font-black uppercase tracking-[0.2em] ${
                                  dep.call_type === 'SQL' ? 'text-amber-500' : 
                                  dep.call_type === 'GRPC' ? 'text-blue-400' :
                                  dep.call_type === 'REST' ? 'text-indigo-400' : 'text-emerald-400'
-                              }`}>{dep.call_type} ENGINE</span>
+                              }`}>{dep.call_type}</span>
                            </div>
-                           <span className={`text-sm font-black uppercase leading-none tracking-tight mb-4 ${settings.themeMode === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`}>{dep.target_service}</span>
-                           <div className="flex flex-col gap-2 w-full border-t border-white/10 pt-4">
-                              <div className="flex justify-between items-center text-[8px] font-black text-zinc-500 uppercase tracking-widest">
-                                 <span>Resource Load</span>
-                                 <span className={dep.call_type === 'SQL' ? 'text-amber-400' : 'text-white'}>64.8%</span>
+                           <span className={`text-[10px] font-black uppercase leading-none tracking-tight mb-3 ${settings.themeMode === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`}>{dep.target_service}</span>
+                           <div className="flex flex-col gap-1.5 w-full border-t border-white/10 pt-3">
+                              <div className="flex justify-between items-center text-[7px] font-black text-zinc-500 uppercase tracking-widest">
+                                 <span>Load</span>
+                                 <span className={dep.call_type === 'SQL' ? 'text-amber-400' : 'text-white'}>64%</span>
                               </div>
-                              <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
+                              <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
                                  <div 
                                     className={`h-full ${dep.call_type === 'SQL' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]'}`} 
-                                    style={{ width: '64.8%' }} 
+                                    style={{ width: '64%' }} 
                                  />
                               </div>
                            </div>
@@ -792,7 +792,7 @@ export default function Dashboard() {
                         />
                         
                         {/* Accelerated Particle Physics */}
-                        <div className="absolute top-1/2 left-1/2 -z-10 w-3 h-3 bg-emerald-400 rounded-full blur-[3.5px] shadow-[0_0_15px_rgba(16,185,129,1)]" 
+                        <div className="absolute top-1/2 left-1/2 -z-10 w-2.5 h-2.5 bg-emerald-400 rounded-full blur-[3px] shadow-[0_0_12px_rgba(16,185,129,1)]" 
                              style={{ 
                                 animation: `flow-pulse 2s infinite linear`,
                                 animationDelay: `${i * 0.5}s`,
@@ -1042,29 +1042,53 @@ export default function Dashboard() {
           <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full ${selectedCard === 'graph' ? 'max-w-[1600px]' : 'max-w-2xl'} ${settings.themeMode === 'dark' ? 'bg-zinc-950/95 border-white/10' : 'bg-white border-zinc-200 shadow-2xl'} border p-10 rounded-[60px] z-[70] animate-in zoom-in-95 duration-500 overflow-y-auto max-h-[95vh]`}>
             <div className={`flex items-center justify-between mb-8 pb-4 border-b ${settings.themeMode === 'dark' ? 'border-white/5' : 'border-zinc-100'}`}>
               <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-2xl ${selectedCard === 'cpu' ? 'bg-indigo-500/20 text-indigo-400' :
+                <div className={`p-2.5 rounded-xl ${
+                    selectedCard === 'cpu' ? 'bg-indigo-500/20 text-indigo-400' :
                     selectedCard === 'memory' ? 'bg-purple-500/20 text-purple-400' :
-                      selectedCard === 'connections' ? 'bg-cyan-500/20 text-cyan-400' :
-                        selectedCard === 'cooling' ? 'bg-blue-500/20 text-blue-400' :
-                          selectedCard === 'matrix' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-yellow-500/20 text-yellow-400'
+                    selectedCard === 'connections' ? 'bg-cyan-500/20 text-cyan-400' :
+                    selectedCard === 'cooling' ? 'bg-blue-500/20 text-blue-400' :
+                    selectedCard === 'matrix' ? 'bg-emerald-500/20 text-emerald-400' : 
+                    selectedCard === 'graph' ? 'bg-emerald-500/20 text-emerald-400' :
+                    selectedCard === 'tracer' ? 'bg-sky-500/20 text-sky-400' :
+                    selectedCard === 'chaos' ? 'bg-orange-500/20 text-orange-400' :
+                    selectedCard === 'cost' ? 'bg-emerald-500/20 text-emerald-400' :
+                    selectedCard === 'power' ? 'bg-yellow-500/20 text-yellow-400' :
+                    'bg-zinc-500/20 text-zinc-400'
                   }`}>
-                  {selectedCard === 'cpu' && <Cpu className="w-6 h-6" />}
-                  {selectedCard === 'memory' && <HardDrive className="w-6 h-6" />}
-                  {selectedCard === 'connections' && <Server className="w-6 h-6" />}
+                  {selectedCard === 'cpu' && <Cpu className="w-5 h-5" />}
+                  {selectedCard === 'memory' && <HardDrive className="w-5 h-5" />}
+                  {selectedCard === 'connections' && <Server className="w-5 h-5" />}
                   {selectedCard === 'cooling' && (
                     <Fan 
-                      className={`w-6 h-6 animate-fan-spin`} 
+                      className="w-5 h-5 animate-fan-spin" 
                       style={{ animationDuration: latestMetric.cpu_fan_speed > 0 ? `${Math.max(0.1, 1.5 - (latestMetric.cpu_fan_speed / 4000))}s` : '2s' }}
                     />
                   )}
-                  {selectedCard === 'power' && <Zap className="w-6 h-6" />}
-                  {selectedCard === 'tracer' && <Globe className="w-6 h-6" />}
-                  {selectedCard === 'matrix' && <Activity className="w-6 h-6" />}
+                  {selectedCard === 'power' && <Zap className="w-5 h-5" />}
+                  {selectedCard === 'tracer' && <Globe className="w-5 h-5" />}
+                  {selectedCard === 'matrix' && <Activity className="w-5 h-5" />}
+                  {selectedCard === 'graph' && <Globe className="w-5 h-5" />}
+                  {selectedCard === 'chaos' && <Flame className="w-5 h-5" />}
+                  {selectedCard === 'cost' && <DollarSign className="w-5 h-5" />}
+                  {selectedCard === 'jobs' && <Briefcase className="w-5 h-5" />}
                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold uppercase tracking-tight">{selectedCard === 'matrix' ? 'Telemetry Matrix' : selectedCard === 'tracer' ? 'Internet Tracer' : `${selectedCard} Diagnosis`}</h2>
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className={`${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'} text-sm`}>Real-time deep cluster telemetry</p>
+                <div className="flex flex-col justify-center">
+                  <h2 className="text-xl font-bold uppercase tracking-tight">
+                    {selectedCard === 'matrix' ? 'Telemetry Matrix' : 
+                     selectedCard === 'tracer' ? 'Internet Tracer' : 
+                     selectedCard === 'graph' ? 'Strategic Topology Diagnosis' :
+                     selectedCard === 'cpu' ? 'Compute Core Diagnosis' :
+                     selectedCard === 'memory' ? 'Memory Cluster Diagnosis' :
+                     selectedCard === 'connections' ? 'TCP Stream Diagnosis' :
+                     selectedCard === 'cooling' ? 'Thermal Array Diagnosis' :
+                     selectedCard === 'power' ? 'Power Load Diagnosis' :
+                     selectedCard === 'chaos' ? 'Chaos Lab Diagnosis' :
+                     selectedCard === 'cost' ? 'Cost HUD Diagnosis' :
+                     selectedCard === 'jobs' ? 'SRE Jobs Diagnosis' :
+                     `${selectedCard} Diagnosis`}
+                  </h2>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className={`${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'} text-[9px] uppercase tracking-[0.2em] font-black`}>Real-time deep cluster telemetry</p>
                     {selectedCard === 'cpu' && latestMetric.cpu_model && (
                       <>
                         <div className="w-1 h-1 rounded-full bg-zinc-700" />
@@ -1249,11 +1273,11 @@ export default function Dashboard() {
                         <div className="absolute inset-0 bg-[radial-gradient(#10b98118_1.5px,transparent_1.5px)] [background-size:60px_60px] opacity-50 pointer-events-none shadow-inner" />
                         
                         {/* Central Processor Node (Strategic Scale) */}
-                        <div className="w-56 h-56 rounded-full bg-emerald-500/10 border-[8px] border-emerald-400/30 flex flex-col items-center justify-center relative z-20 animate-pulse shadow-[0_0_120px_rgba(16,185,129,0.2)] group-hover/studio:scale-110 transition-all duration-1000">
-                           <Globe size={64} className="text-emerald-400 mb-4 opacity-100 drop-shadow-[0_0_20px_rgba(16,185,129,1)]" />
+                        <div className="w-44 h-44 rounded-full bg-emerald-500/10 border-[6px] border-emerald-400/30 flex flex-col items-center justify-center relative z-20 animate-pulse shadow-[0_0_80px_rgba(16,185,129,0.15)] group-hover/studio:scale-110 transition-all duration-1000">
+                           <Globe size={40} className="text-emerald-400 mb-3 opacity-100 drop-shadow-[0_0_15px_rgba(16,185,129,1)]" />
                            <div className="text-center">
-                              <span className="block text-[14px] font-black text-white uppercase tracking-[0.6em]">NEXUS-HUB</span>
-                              <span className="block text-[10px] font-mono text-emerald-500/80 uppercase mt-1.5 font-black tracking-widest">Primary Operational Cell</span>
+                              <span className="block text-[11px] font-black text-white uppercase tracking-[0.5em]">NEXUS-HUB</span>
+                              <span className="block text-[8px] font-mono text-emerald-500/80 uppercase mt-1 font-black tracking-widest">Master Control Unit</span>
                            </div>
                            <div className="absolute inset-[-15px] border-[2px] border-emerald-500/10 rounded-full animate-[spin_20s_linear_infinite] border-dashed" />
                            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,1)]" />
@@ -1268,26 +1292,26 @@ export default function Dashboard() {
                         ]).map((dep, i) => {
                            const total = (latestMetric.dependencies?.length || 4);
                            const angle = (i * (360 / total)) * (Math.PI / 180);
-                           const radiusX = 580; 
-                           const radiusY = 110; 
+                           const radiusX = 520; // Reduced from 580
+                           const radiusY = 200; // Reduced from 240
                            const x = Math.cos(angle) * radiusX;
                            const y = Math.sin(angle) * radiusY;
                            
                            return (
                               <div key={i} className="absolute flex flex-col items-center group/node" style={{ transform: `translate(${x}px, ${y}px)` }}>
-                                 <div className={`px-7 py-5 rounded-[36px] border-2 shadow-2xl backdrop-blur-3xl transition-all duration-500 flex flex-col items-center min-w-[180px] ${
+                                 <div className={`px-5 py-3 rounded-[28px] border-2 shadow-xl backdrop-blur-3xl transition-all duration-500 flex flex-col items-center min-w-[150px] ${
                                     dep.call_type === 'SQL' ? 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/50' : 
                                     dep.call_type === 'GRPC' ? 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/50' :
                                     'bg-indigo-500/5 border-indigo-500/20 hover:border-indigo-500/50'
                                  }`}>
-                                    <div className="flex items-center gap-2.5 mb-2.5">
-                                       <div className={`w-2 h-2 rounded-full ${dep.latency_ms > 30 ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,1)]'}`} />
-                                       <span className={`text-[10px] font-black uppercase tracking-widest ${dep.call_type === 'SQL' ? 'text-amber-500' : 'text-blue-500'}`}>{dep.call_type} NODE</span>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                       <div className={`w-1.5 h-1.5 rounded-full ${dep.latency_ms > 30 ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,1)]'}`} />
+                                       <span className={`text-[8px] font-black uppercase tracking-widest ${dep.call_type === 'SQL' ? 'text-amber-500' : 'text-blue-500'}`}>{dep.call_type} NODE</span>
                                     </div>
-                                    <span className="text-sm font-black text-white uppercase tracking-tight mb-2.5">{dep.target_service}</span>
-                                    <div className="flex items-center gap-2.5 bg-black/60 px-4 py-2 border border-white/5 rounded-2xl shadow-inner">
-                                       <Activity className="w-3.5 h-3.5 text-emerald-400" />
-                                       <span className="text-xs font-mono font-black text-emerald-400">{dep.latency_ms.toFixed(1)}ms</span>
+                                    <span className="text-[11px] font-black text-white uppercase tracking-tight mb-2.5">{dep.target_service}</span>
+                                    <div className="flex items-center gap-2 bg-black/60 px-3 py-1.5 border border-white/5 rounded-xl shadow-inner">
+                                       <Activity className="w-3 h-3 text-emerald-400" />
+                                       <span className="text-[10px] font-mono font-black text-emerald-400">{dep.latency_ms.toFixed(1)}ms</span>
                                     </div>
                                  </div>
                                  
