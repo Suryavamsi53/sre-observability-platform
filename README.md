@@ -1,10 +1,12 @@
-# Realtime Incident Monitoring & Auto-Healing Platform (SRE System)
+# SRE Nexus: Real-time Incident Monitoring & Auto-Healing Platform
 
-A production-grade, event-driven microservices architecture built with Go, gRPC, Protobuf, Kafka, Next.js, and Kubernetes. The project demonstrates real-world software engineering practices mimicking high-scale environments similar to Uber/Google.
+A production-grade, event-driven microservices architecture built with **Go (1.22+)**, **gRPC**, **Protobuf**, **Apache Kafka**, and **Next.js 14**. This platform demonstrates high-fidelity observability and automated remediation patterns used in hyper-scale environments.
 
-## 🏗 Architecture Overview
+---
 
-The platform collects real-time telemetry from application instances, routes it through an event bus (Kafka), analyzes the streams for anomalies, and asynchronously performs auto-remediation while live-streaming alerts to a centralized frontend dashboard.
+## 🏗 Architecture: The "Command & Control" Loop
+
+SRE Nexus operates on a 10 FPS (frames-per-second) telemetry pulse, ensuring that from the moment a kernel-level anomaly occurs, it is visualized on the dashboard in less than 200ms.
 
 ```mermaid
 graph LR
@@ -44,166 +46,139 @@ graph LR
     G -->|Server-Sent Events| F
 ```
 
-**Key Components:**
-1. **Agent Service**: Attached to end-user applications. Collects process metrics (CPU/Mem/Connections) and uses **gRPC Client Streaming** to push to the centralized collector.
-2. **Collector Service**: The gRPC server receiver. Ingests dense streams, provides connection management, unmarshals Protobufs, and publishes validated metrics to the `metrics-topic` in Kafka.
-3. **Analysis Service**: A constant consumer group pulling from `metrics-topic`. Simulates sliding window heuristics or threshold anomalies (e.g. CPU > 90%). Fires structured `Alert` events to `alerts-topic`.
-4. **Auto-Healing Service**: Subscribes to `alerts-topic`. Runs isolated remediation workflows (e.g., restarts Kubernetes pods via API) when `CRITICAL` severity events are found.
-5. **API Gateway**: Provides REST boundaries and manages external client connections. Subscribes to `alerts-topic` and fans out live actionable telemetry to Next.js clients via **Server-Sent Events (SSE)**.
-6. **Frontend Dashboard**: Minimal Next.js + Tailwind React application providing real-time data visualization.
+### Core Pipeline Details:
+1.  **Agent Service**: Scrapes Linux Kernel paths (`/sys/class/hwmon`, `/proc/stat`) to collect raw hardware metrics. Uses **gRPC Client Streaming** for persistent, low-overhead data egress.
+2.  **Collector Service**: A high-throughput gRPC receiver that unmarshals Protobufs at scale and publishes to Kafka.
+3.  **Analysis Engine**: Performs sliding-window heuristics to detect anomalies (e.g., CPU thermal spikes, connection floods).
+4.  **Auto-Healing Service**: Subscribes to critical alerts and executes isolation/restart scripts (Simulated Kubernetes API integration).
+5.  **SSE Gateway**: Bridges the internal Kafka backbone to external web-clients via Server-Sent Events.
 
 ---
 
-## 📂 Project Structure
+## 💎 Advanced Features (v2.5.0)
 
-```text
-/sre-platform
-├── api/
-│   └── v1/
-│       └── sre.proto                # Versioned Protobuf Definitions
-│       └── sre.pb.go                # Generated Code (run protoc)
-│       └── sre_grpc.pb.go           # Generated Code
-├── services/
-│   ├── agent/main.go                # Telemetry scraper / gRPC Client
-│   ├── collector/main.go            # gRPC Server / Kafka Producer
-│   ├── analysis/main.go             # Kafka Consumer / Logic / Producer
-│   ├── healing/main.go              # Kafka Consumer / Action dispatcher
-│   └── gateway/main.go              # HTTP/SSE Gateway / Kafka Consumer
-├── pkg/
-│   ├── logger/logger.go             # Centralized structured logging (Zap)
-│   ├── kafka/producer.go            # Generic idempotent producers
-│   ├── kafka/consumer.go            # Fault-tolerant consumers
-│   └── metrics/metrics.go           # Prometheus integration (Internal Telemetry)
-├── frontend/                        # Next.js Application Source
-│   ├── package.json
-│   └── src/app/page.tsx             # Real-time Alert Dashboard (React)
-├── k8s/
-│   └── deployments.yaml             # K8s Deployment and Service specs
-├── docker-compose.yml               # Backing infrastructure (Kafka/Postgres/Prometheus)
-├── Dockerfile                       # Multi-stage scalable build file
-└── go.mod                           # Go dependencies
-```
+### 🛰 Strategic Topology (Service Mesh Studio)
+A high-definition interactive map of service dependencies.
+*   **Correlation Mesh**: Automatically maps inbound streams to downstream SQL/gRPC dependencies.
+*   **Stability Index**: Real-time calculation of mesh health based on latency jitter and error rates.
+*   **Particle Physics**: Visualizes directional data intensity through accelerated particle paths.
+
+### 🧪 Chaos Lab (Fault Injection)
+Mission-control grade interface for testing system resilience.
+*   **Fault Injection**: Simulation of Service Termination, Latency Spikes (e.g., +2000ms), and Network Jitter.
+*   **Analytical Diagnosis**: Generates deterministic insights/heuristics after an experiment to evaluate recovery performance.
+*   **RBAC Protected**: Destructive actions are gated by the **Authentication Core**.
+
+### 💰 Financial Observability (Cost HUD)
+Integrates infrastructure load with operational expenditure.
+*   **Resource Burn Projections**: Estimated monthly cloud expenditure (₹) based on actual power draw.
+*   **1-Click Optimizer**: Provides actionable resizing recommendations to eliminate cloud waste.
+
+### 📡 Internet Tracer (Network HUD)
+Real-time network diagnostics beyond standard metrics.
+*   **Visual Hop Graph**: A traceroute implementation mapping the path from host to target gateway.
+*   **Throughput Analytics**: Monitoring sub-second Bit-per-second deltas for TX/RX streams.
+
+### 🌡 Hardware & Processor Deep-Dive
+*   **Cooling Array**: Real-time monitoring of CPU/GPU fan speeds (RPM) mapped directly from the Kernel.
+*   **Energy Metrics**: Power consumption tracking (Watts) with 1m/1h/24h projections.
+*   **The Processor HUD**: Live multi-core utilization charts and "Top Consumers" process list sorting.
 
 ---
 
-## 🚀 Setup & Execution 
+## 🛠 Tech Stack
+
+*   **Language**: Go (Clean Architecture)
+*   **Messaging**: Apache Kafka (Distributed Event Bus)
+*   **RPC**: gRPC with Protocol Buffers
+*   **Frontend**: Next.js 14 (App Router), Tailwind CSS, Recharts
+*   **UI/UX**: Glassmorphic HUD with Theme-Aware tokens (Dark/Light mode)
+*   **Architecture**: Docker, Kubernetes (Ready-to-deploy manifests)
+
+---
+
+## 🚀 Getting Started
 
 ### 1. Requirements
-* Go 1.22+
-* Docker + Docker Compose
-* Protobuf Compiler (`protoc`)
-* Node.js / NPM (For frontend)
+*   Go 1.22+
+*   Docker + Docker Compose
+*   Node.js 18+
 
-### 2. Generate Protobuf (Skip if already generated)
-```bash
-go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
-export PATH="$PATH:$(go env GOPATH)/bin"
-
-protoc --go_out=. --go_opt=paths=source_relative \
-    --go-grpc_out=. --go-grpc_opt=paths=source_relative \
-    api/v1/sre.proto
-```
-
-### 3. Start Infrastructure (Kafka, Zookeeper, DB, Observability)
-Ensure that Docker is running locally.
-
+### 2. Infrastructure
+Launch the backing Kafka, Zookeeper, and Database instances:
 ```bash
 docker-compose up -d
 ```
 
-### 4. Run Microservices
-
-Start the services sequentially or through the provided utility script. For a one-click automated start in the background, you can simply run:
+### 3. Backend Services
+Run the automated unified-start script:
 ```bash
 ./start_backend.sh
 ```
+*Alternatively, run services manually in `services/agent`, `services/collector`, etc.*
 
-**Alternative - Manual Start (Parallel terminals):**
-
-**Terminal 1: Gateway Server (REST/SSE)**
-```bash
-KAFKA_BROKERS="127.0.0.1:9092" go run services/gateway/main.go
-```
-
-**Terminal 2: Collector Server (gRPC)**
-```bash
-KAFKA_BROKERS="127.0.0.1:9092" go run services/collector/main.go
-```
-
-**Terminal 3: Analysis Engine**
-```bash
-KAFKA_BROKERS="127.0.0.1:9092" go run services/analysis/main.go
-```
-
-**Terminal 4: Auto-Healing Worker**
-```bash
-KAFKA_BROKERS="127.0.0.1:9092" go run services/healing/main.go
-```
-
-**Terminal 5: Agent Service (Telemetry Spammer)**
-```bash
-COLLECTOR_ADDR="localhost:50051" go run services/agent/main.go
-```
-
-### 5. Start the Real-Time Dashboard
-The dashboard allows visual consumption of the generated faults simulated in real-time.
-
+### 4. Admin Dashboard
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Access the application at: `http://localhost:3000`
+Explore the dashboard at `http://localhost:3000`. **Default Login: `admin` / `admin123`**
 
 ---
 
-## 📑 Detailed Technical Manual
-For a deeper dive into the system's architecture, telemetry lifecycle, and design decisions, please see the [**DOCUMENTATION.md**](./DOCUMENTATION.md).
+## 📑 Technical Reference
+For deep implementation details on Protobuf schemas, MTTR calculations, and SSE propagation, see [**DOCUMENTATION.md**](./DOCUMENTATION.md).
 
 ---
 
-## 🛠 Advanced Features Developed
+## 🔮 Roadmap Progress (90%)
 
-* **Strategic Topology (Service Mesh Studio)**: Real-time, interactive visualization of service dependencies (gRPC, SQL, REST) with Mesh Stability tracking and correlation analysis.
-* **SRE Automation Engine**: Integrated tracking of background automation tasks (Log Rotation, SSL Renewal) with per-job resource consumption and detailed execution logs.
-* **Chaos Lab (Fault Injection)**: Mission-control grade interface for administrators to simulate service failures, latency spikes, and network jitter to validate system resilience.
-* **Financial Observability (Cost HUD)**: Real-time estimation of cloud resource burn (₹) with predictive overspend detection and 1-click optimization recommendations.
-* **Reliability SLIs**: Built-in monitoring of critical SRE metrics including System Uptime, Error Budgets, and Mean Time To Recovery (MTTR).
-* **Deep Hardware Interfacing**: The Agent parses live metrics (CPU/GPU fan speeds RPM, battery wattage, internal thermal state) mapping directly from raw Linux Kernel paths.
-* **Internet Tracer (Network HUD)**: Integrated real-time network throughput and a visual **Hop Graph** (Traceroute) showing the path from host to target gateway.
-* **Deep Processor Analytics**: Built-in support for multi-core hardware, featuring live thread-count tracking and a "Top Resource Consumers" process list.
-* **Theme-Aware Dashboard**: Comprehensive Dark/Light theme system utilizing system-preference persistence and curated glassmorphic UI color tokens.
+```mermaid
+graph TD
+    classDef completed fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff;
+    classDef inprogress fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff;
+    classDef planned fill:#1e1e2e,stroke:#4b5563,stroke-width:2px,color:#9ca3af;
 
----
+    subgraph P1[Phase 1: Foundation]
+        A[gRPC & Protobuf Core]:::completed
+        B[Kafka Event Backbone]:::completed
+        C[Agent/Collector Sync]:::completed
+    end
 
-## 💻 Tech Stack
+    subgraph P2[Phase 2: Real-time HUD]
+        D[Next.js 14 Dashboard]:::completed
+        E[SSE Stream Gateway]:::completed
+        F[Theme-Aware UI]:::completed
+    end
 
-* **Backend:** Go (Golang)
-* **Internal Communication:** gRPC, Protocol Buffers (Protobuf)
-* **Message Broker:** Apache Kafka (Coupled with Zookeeper)
-* **API Gateway:** HTTP REST / Server-Sent Events (SSE) bridge 
-* **Frontend:** Next.js 14, React, Tailwind CSS, Recharts
-* **Containerization:** Docker, Docker Compose
-* **Orchestration:** Kubernetes (Ready-to-deploy Helm/YAML manifests)
+    subgraph P3[Phase 3: SRE Strategic Studios]
+        G[Strategic Topology]:::completed
+        H[Chaos Engineering Lab]:::completed
+        I[Cost HUD - Financials]:::completed
+    end
 
----
+    subgraph P4[Phase 4: Deep Intelligence]
+        J[Kernel Hardware Scrapers]:::completed
+        K[Network Hop Graph]:::completed
+        L[Multi-Core Process HUD]:::completed
+    end
 
-## 🔮 Future Improvements / Roadmap (Current Progress 85%)
+    subgraph P5[Phase 5: Enterprise Scale]
+        M[OpenTelemetry Tracing]:::inprogress
+        N[PostgreSQL Persistence]:::inprogress
+        O[Dynamic Threshold API]:::planned
+    end
 
-* [x] Strategic Topology & Service Mesh visualization.
-* [x] SRE Automation Jobs & Resource tracking.
-* [x] Financial Observability (Cost HUD).
-* [x] Chaos Engineering Lab & Analytical Diagnosis.
-* [x] Real-time Search & Filtering across Incident Feed.
-* [x] Deep PID-level process monitoring.
-* [x] Internet Traceroute visualization.
-* [ ] Integrate strict OpenTelemetry tracing across all inter-service boundaries.
-* [ ] Persist historical metrics and incidents in PostgreSQL/TimescaleDB.
-* [ ] Build a rules-engine UI to dynamically update anomaly detection thresholds.
+    P1 --> P2
+    P2 --> P3
+    P3 --> P4
+    P4 --> P5
+```
+
 
 ---
 
 ## 📝 Disclaimer
+*This project was developed with AI-assisted engineering (Gemini/Antigravity) and refined for high-fidelity SRE practice and system performance optimization.*
 
-*This project was initially scaffolded with AI-assisted tools (Gemini / Antigravity) and further refined, extended, and optimized as part of high-fidelity backend systems and SRE practice development.*
