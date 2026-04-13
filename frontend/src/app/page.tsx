@@ -144,6 +144,8 @@ interface AppSettings {
   themeColor: "indigo" | "emerald" | "rose" | "purple";
   themeMode: "dark" | "light";
   powerWarningThreshold: number;
+  soundAlerts: boolean;
+  alertSound: 'industrial' | 'cyber' | 'emergency';
 }
 
 interface UserProfile {
@@ -199,7 +201,37 @@ export default function Dashboard() {
     themeColor: "indigo",
     themeMode: "dark",
     powerWarningThreshold: 300,
+    soundAlerts: true,
+    alertSound: 'industrial',
   });
+
+  const playAlarmSound = (type: 'industrial' | 'cyber' | 'emergency') => {
+    if (!settings.soundAlerts || typeof window === 'undefined') return;
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    if (type === 'emergency') {
+      oscillator.type = 'sawtooth';
+      oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.5);
+    } else if (type === 'cyber') {
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(110, audioCtx.currentTime + 0.2);
+    } else {
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(554.37, audioCtx.currentTime);
+    }
+    
+    gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.05);
+    gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.4);
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.4);
+  };
 
   const appendLog = (type: Log["type"], message: string) => {
     if (!settings.showLogs) return;
@@ -245,6 +277,7 @@ export default function Dashboard() {
           const newAlerts = [data, ...prev].slice(0, 50);
           if (data.severity === 4 && !settings.muteAlerts) {
             addToast(`CRITICAL: ${data.message} in ${data.service_name}`, "critical");
+            playAlarmSound(settings.alertSound);
           }
           return newAlerts;
         });
@@ -454,9 +487,28 @@ export default function Dashboard() {
               {healthStatus === "CRITICAL" && <AlertOctagon className="w-3 h-3" />}
               {healthStatus}
             </div>
-            <button className="text-zinc-400 hover:text-white transition-colors relative">
-              <BellRing className="w-5 h-5" />
-              {alerts.length > 0 && <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full animate-ping" />}
+            <button className="text-zinc-400 hover:text-white transition-colors relative group">
+              <BellRing className={`w-5 h-5 ${alerts.length > 0 ? 'text-red-400' : ''}`} />
+              {alerts.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-lg animate-bounce border border-white/20">
+                  {alerts.length}
+                </span>
+              )}
+              <div className="absolute top-10 right-0 w-64 bg-zinc-950 border border-white/10 rounded-2xl p-4 hidden group-focus-within:block z-[100] shadow-2xl animate-in fade-in slide-in-from-top-2">
+                 <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-3 border-b border-white/5 pb-2">Active Notifications</h4>
+                 <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+                   {alerts.length === 0 ? (
+                     <p className="text-[10px] text-zinc-600 italic py-4 text-center">No active system alerts</p>
+                   ) : (
+                     alerts.slice(0, 5).map(a => (
+                       <div key={a.alert_id} className="p-2 rounded-lg bg-white/5 border border-white/5 text-[10px]">
+                         <div className="flex justify-between text-red-400 font-bold mb-1 uppercase"><span>{a.service_name}</span><span>{new Date(a.timestamp * 1000).toLocaleTimeString()}</span></div>
+                         <p className="text-zinc-400 line-clamp-2">{a.message}</p>
+                       </div>
+                     ))
+                   )}
+                 </div>
+              </div>
             </button>
             <button
               onClick={() => setIsSettingsOpen(true)}
@@ -725,83 +777,60 @@ export default function Dashboard() {
               </div>
             </div>
             
-            <div className="flex-1 flex items-center justify-center relative mt-4 overflow-hidden">
+            <div className="flex-1 flex items-center justify-between relative mt-4 px-10 overflow-hidden">
                {/* Strategic Grid Background */}
-               <div className="absolute inset-0 bg-[radial-gradient(#10b98110_1px,transparent_1px)] [background-size:40px_40px] opacity-40 shadow-inner" />
+               <div className="absolute inset-0 bg-[radial-gradient(#10b98110_1px,transparent_1px)] [background-size:40px_40px] opacity-20 shadow-inner" />
 
-               {/* Center Hub: GATEWAY (L) */}
-               <div className="w-20 h-20 rounded-full bg-emerald-500/10 border-4 border-emerald-400/30 flex flex-col items-center justify-center relative z-20 animate-pulse shadow-[0_0_60px_rgba(16,185,129,0.15)] group-hover:scale-110 transition-transform duration-700">
-                  <div className="w-3 h-3 rounded-full bg-emerald-400 animate-ping absolute -top-1" />
-                  <span className="text-[9px] font-black text-white uppercase tracking-[0.3em] mb-1">HUB</span>
-                  <div className="flex gap-1.5">
-                     {[1,2,3].map(i => <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === 2 ? 'bg-emerald-400' : 'bg-emerald-400/40'}`} />)}
+               {/* Ingress Point */}
+               <div className="flex flex-col items-center gap-2 relative z-20 animate-node-float">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border-2 border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                     <User size={24} />
                   </div>
+                  <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Global Ingress</span>
                </div>
 
-               {/* Strategic Scale Dependency Orbits */}
-               {(latestMetric.dependencies?.length ? latestMetric.dependencies : [
-                  {target_service: "auth-gateway-svc", call_type: "GRPC"},
-                  {target_service: "primary-postgres", call_type: "SQL"},
-                  {target_service: "static-edge-cdn", call_type: "HTTP"},
-                  {target_service: "log-aggregator", call_type: "BUFF"}
-               ]).map((dep, i) => {
-                  const total = (latestMetric.dependencies?.length || 4);
-                  const angle = (i * (360 / total)) * (Math.PI / 180);
-                  const radiusX = 220; // Reduced Spread
-                  const radiusY = 90;  
-                  const x = Math.cos(angle) * radiusX;
-                  const y = Math.sin(angle) * radiusY;
-                  
-                  return (
-                     <div key={i} className="absolute transition-all duration-1000 group/node" style={{ transform: `translate(${x}px, ${y}px)` }}>
-                        <div className={`p-4 rounded-[24px] shadow-xl backdrop-blur-3xl transition-all duration-500 flex flex-col items-center relative z-30 min-w-[140px] ${
-                          settings.themeMode === 'dark' ? 'bg-black/90 border-white/10 hover:border-emerald-500/50' : 'bg-white border-zinc-200 hover:border-emerald-300'
-                        } border-2 group-hover/node:scale-110 group-hover/node:z-40`}>
-                           <div className="flex items-center gap-1.5 mb-2">
-                              {dep.call_type === 'GRPC' && <Share2 className="w-3 h-3 text-blue-400" />}
-                              {dep.call_type === 'SQL' && <Database className="w-3 h-3 text-amber-500" />}
-                              {dep.call_type === 'HTTP' && <Globe className="w-3 h-3 text-emerald-400" />}
-                              {dep.call_type === 'REST' && <Globe className="w-3 h-3 text-indigo-400" />}
-                              <span className={`text-[8px] font-black uppercase tracking-[0.2em] ${
-                                 dep.call_type === 'SQL' ? 'text-amber-500' : 
-                                 dep.call_type === 'GRPC' ? 'text-blue-400' :
-                                 dep.call_type === 'REST' ? 'text-indigo-400' : 'text-emerald-400'
-                              }`}>{dep.call_type}</span>
-                           </div>
-                           <span className={`text-[10px] font-black uppercase leading-none tracking-tight mb-3 ${settings.themeMode === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`}>{dep.target_service}</span>
-                           <div className="flex flex-col gap-1.5 w-full border-t border-white/10 pt-3">
-                              <div className="flex justify-between items-center text-[7px] font-black text-zinc-500 uppercase tracking-widest">
-                                 <span>Load</span>
-                                 <span className={dep.call_type === 'SQL' ? 'text-amber-400' : 'text-white'}>64%</span>
-                              </div>
-                              <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
-                                 <div 
-                                    className={`h-full ${dep.call_type === 'SQL' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]'}`} 
-                                    style={{ width: '64%' }} 
-                                 />
-                              </div>
-                           </div>
+               {/* Connection Paths (Simplified for Card) */}
+               <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20">
+                  <path d="M 120 180 Q 250 180 320 180" fill="none" stroke="#6366f1" strokeWidth="2" strokeDasharray="4 4" className="animate-flow-line" />
+                  <path d="M 400 180 Q 550 100 650 100" fill="none" stroke="#10b981" strokeWidth="2" strokeDasharray="4 4" className="animate-flow-line" />
+                  <path d="M 400 180 Q 550 180 650 180" fill="none" stroke="#10b981" strokeWidth="2" strokeDasharray="4 4" className="animate-flow-line" />
+                  <path d="M 400 180 Q 550 260 650 260" fill="none" stroke="#10b981" strokeWidth="2" strokeDasharray="4 4" className="animate-flow-line" />
+               </svg>
+
+               {/* Center Hub */}
+               <div className="w-24 h-24 rounded-full bg-emerald-500/10 border-4 border-emerald-400/30 flex flex-col items-center justify-center relative z-20 shadow-[0_0_60px_rgba(16,185,129,0.15)] group-hover:scale-110 transition-transform duration-700">
+                  <div className="w-3 h-3 rounded-full bg-emerald-400 animate-ping absolute -top-1" />
+                  <Activity size={24} className="text-emerald-400 mb-1" />
+                  <span className="text-[9px] font-black text-white uppercase tracking-[0.2em]">HUB</span>
+               </div>
+
+               {/* Downstream Tiers (Compact) */}
+               <div className="flex flex-col gap-4 relative z-20">
+                  {(latestMetric.dependencies?.slice(0, 3).length ? latestMetric.dependencies.slice(0, 3) : [
+                     {target_service: "auth-svc", call_type: "GRPC"},
+                     {target_service: "postgres", call_type: "SQL"},
+                     {target_service: "edge-cdn", call_type: "HTTP"}
+                  ]).map((dep, i) => (
+                     <div key={i} className={`px-4 py-2 rounded-2xl border-2 backdrop-blur-md transition-all duration-500 group/node animate-node-float ${
+                       settings.themeMode === 'dark' ? 'bg-black/60 border-white/5 hover:border-emerald-500/50' : 'bg-white border-zinc-200'
+                     }`} style={{ animationDelay: `${i * 0.2}s` }}>
+                        <div className="flex items-center gap-2">
+                           <div className={`w-1.5 h-1.5 rounded-full ${dep.call_type === 'SQL' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                           <span className="text-[9px] font-black text-zinc-100 uppercase tracking-tight">{dep.target_service}</span>
                         </div>
-                        
-                        {/* Strategic High-Contrast Particle Path */}
-                        <div className="absolute top-1/2 left-1/2 -z-10 h-[2px] bg-gradient-to-r from-emerald-500/0 via-emerald-500/30 to-emerald-500/0 origin-left pointer-events-none" 
-                             style={{ 
-                                width: `${radiusX}px`, 
-                                transform: `rotate(${angle + Math.PI}rad) translateX(15px)` 
-                             }} 
-                        />
-                        
-                        {/* Accelerated Particle Physics */}
-                        <div className="absolute top-1/2 left-1/2 -z-10 w-2.5 h-2.5 bg-emerald-400 rounded-full blur-[3px] shadow-[0_0_12px_rgba(16,185,129,1)]" 
-                             style={{ 
-                                animation: `flow-pulse 2s infinite linear`,
-                                animationDelay: `${i * 0.5}s`,
-                                transform: `rotate(${angle + Math.PI}rad) translateX(${radiusX}px)` 
-                             }} 
-                        />
                      </div>
-                  );
-               })}
+                  ))}
+                  {latestMetric.dependencies?.length > 3 && (
+                     <div className="text-center text-[8px] text-zinc-500 font-black uppercase tracking-widest leading-none">+ {latestMetric.dependencies.length - 3} more systems</div>
+                  )}
+               </div>
+
+               {/* Particle Simulations */}
+               <div className="absolute inset-0 pointer-events-none z-30">
+                  <div className="absolute top-[50%] left-[20%] w-1.5 h-1.5 bg-indigo-400 rounded-full blur-[1px] animate-flow-pulse" style={{ '--flow-x': '200px', '--flow-y': '0px' } as any} />
+                  <div className="absolute top-[50%] left-[45%] w-1.5 h-1.5 bg-emerald-400 rounded-full blur-[1px] animate-flow-pulse" style={{ '--flow-x': '300px', '--flow-y': '-60px', 'animationDelay': '0.5s' } as any} />
+                  <div className="absolute top-[50%] left-[45%] w-1.5 h-1.5 bg-emerald-400 rounded-full blur-[1px] animate-flow-pulse" style={{ '--flow-x': '300px', '--flow-y': '60px', 'animationDelay': '1.2s' } as any} />
+               </div>
             </div>
 
             <div className={`mt-8 pt-6 border-t ${settings.themeMode === 'dark' ? 'border-white/5' : 'border-zinc-100'} flex justify-between items-end relative z-20`}>
@@ -980,8 +1009,17 @@ export default function Dashboard() {
                     a.message.toLowerCase().includes(searchQuery.toLowerCase())
                   )
                   .map((alert) => (
-                    <div key={`${alert.alert_id}-${alert.timestamp}`} className={`${settings.themeMode === 'dark' ? 'bg-red-500/5 text-zinc-200' : 'bg-red-50 text-zinc-800'} hover:bg-red-500/10 transition-colors border-l-2 border-red-500 p-3 rounded-r-xl group cursor-pointer animate-in fade-in slide-in-from-right duration-300`}>
-                      <div className="flex justify-between items-start mb-1">
+                    <div key={`${alert.alert_id}-${alert.timestamp}`} className={`${settings.themeMode === 'dark' ? 'bg-red-500/5 text-zinc-200' : 'bg-red-50 text-zinc-800'} hover:bg-red-500/10 transition-colors border-l-2 border-red-500 p-3 rounded-r-xl group/alert relative animate-in fade-in slide-in-from-right duration-300`}>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAlerts(prev => prev.filter(a => a.alert_id !== alert.alert_id));
+                        }}
+                        className="absolute top-2 right-2 opacity-0 group-hover/alert:opacity-100 p-1 hover:bg-red-500/20 rounded-md transition-all"
+                      >
+                        <X className="w-3 h-3 text-red-400" />
+                      </button>
+                      <div className="flex justify-between items-start mb-1 mr-4">
                         <h4 className="font-bold text-xs tracking-wide">{alert.service_name}</h4>
                         <span className={`text-[10px] ${settings.themeMode === 'dark' ? 'text-zinc-500' : 'text-zinc-400'} font-mono`}>{new Date(alert.timestamp * 1000).toLocaleTimeString()}</span>
                       </div>
@@ -1268,89 +1306,144 @@ export default function Dashboard() {
 
                 {selectedCard === 'graph' && (
                   <div className="space-y-10 animate-in fade-in zoom-in duration-700">
-                     <div className={`p-16 rounded-[80px] ${settings.themeMode === 'dark' ? 'bg-black/60 border-emerald-500/10 shadow-[0_0_120px_rgba(16,185,129,0.08)]' : 'bg-emerald-50/30 border-emerald-100 shadow-xl'} border-2 flex flex-col items-center justify-center min-h-[660px] relative overflow-hidden group/studio`}>
-                        {/* Cinematic Grid Overlay */}
-                        <div className="absolute inset-0 bg-[radial-gradient(#10b98118_1.5px,transparent_1.5px)] [background-size:60px_60px] opacity-50 pointer-events-none shadow-inner" />
-                        
-                        {/* Central Processor Node (Strategic Scale) */}
-                        <div className="w-44 h-44 rounded-full bg-emerald-500/10 border-[6px] border-emerald-400/30 flex flex-col items-center justify-center relative z-20 animate-pulse shadow-[0_0_80px_rgba(16,185,129,0.15)] group-hover/studio:scale-110 transition-all duration-1000">
-                           <Globe size={40} className="text-emerald-400 mb-3 opacity-100 drop-shadow-[0_0_15px_rgba(16,185,129,1)]" />
-                           <div className="text-center">
-                              <span className="block text-[11px] font-black text-white uppercase tracking-[0.5em]">NEXUS-HUB</span>
-                              <span className="block text-[8px] font-mono text-emerald-500/80 uppercase mt-1 font-black tracking-widest">Master Control Unit</span>
+                     <div className={`p-16 rounded-[60px] ${settings.themeMode === 'dark' ? 'bg-[#030303] border-white/5 shadow-[0_0_150px_rgba(0,0,0,0.5)]' : 'bg-white border-zinc-200 shadow-2xl'} border-2 flex flex-col items-center justify-center min-h-[700px] relative overflow-hidden group/studio`}>
+                        {/* Cinematic Background */}
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(16,185,129,0.05),transparent_70%)]" />
+                        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_at_center,black_70%,transparent_100%)]" />
+
+                        <div className="flex w-full items-center justify-between relative z-20 px-4">
+                           {/* LAYER 1: INGRESS (Upstream) */}
+                           <div className="flex flex-col gap-12 w-1/4">
+                              <h3 className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.4em] mb-4 text-center">Traffic Ingress</h3>
+                              {[
+                                { name: 'Global Users', type: 'Edge', load: '84%', color: 'indigo' },
+                                { name: 'API Gateway', type: 'Proxy', load: '22%', color: 'blue' }
+                              ].map((node, i) => (
+                                <div key={i} className={`p-5 rounded-3xl border-2 backdrop-blur-3xl transition-all duration-500 animate-node-float ${
+                                  settings.themeMode === 'dark' ? 'bg-zinc-950/80 border-white/10 hover:border-indigo-500/50' : 'bg-white border-zinc-200 shadow-lg'
+                                }`} style={{ animationDelay: `${i * 0.5}s` }}>
+                                   <div className="flex items-center gap-3 mb-3">
+                                      <div className={`w-2 h-2 rounded-full bg-${node.color}-500 shadow-[0_0_10px_rgba(99,102,241,1)]`} />
+                                      <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">{node.type}</span>
+                                   </div>
+                                   <span className="text-sm font-black text-zinc-100 uppercase block mb-3">{node.name}</span>
+                                   <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                      <div className={`h-full bg-${node.color}-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]`} style={{ width: node.load }} />
+                                   </div>
+                                </div>
+                              ))}
                            </div>
-                           <div className="absolute inset-[-15px] border-[2px] border-emerald-500/10 rounded-full animate-[spin_20s_linear_infinite] border-dashed" />
-                           <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,1)]" />
-                        </div>
-                        
-                        {/* Orbital Satellite Grid */}
-                        {(latestMetric.dependencies?.length ? latestMetric.dependencies : [
-                           {target_service: "auth-gateway", call_type: "GRPC", latency_ms: 12.4},
-                           {target_service: "payment-db", call_type: "SQL", latency_ms: 48.2},
-                           {target_service: "static-cdn", call_type: "HTTP", latency_ms: 5.1},
-                           {target_service: "remittance-svc", call_type: "AUTH", latency_ms: 22.8}
-                        ]).map((dep, i) => {
-                           const total = (latestMetric.dependencies?.length || 4);
-                           const angle = (i * (360 / total)) * (Math.PI / 180);
-                           const radiusX = 520; // Reduced from 580
-                           const radiusY = 200; // Reduced from 240
-                           const x = Math.cos(angle) * radiusX;
-                           const y = Math.sin(angle) * radiusY;
-                           
-                           return (
-                              <div key={i} className="absolute flex flex-col items-center group/node" style={{ transform: `translate(${x}px, ${y}px)` }}>
-                                 <div className={`px-5 py-3 rounded-[28px] border-2 shadow-xl backdrop-blur-3xl transition-all duration-500 flex flex-col items-center min-w-[150px] ${
-                                    dep.call_type === 'SQL' ? 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/50' : 
-                                    dep.call_type === 'GRPC' ? 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/50' :
-                                    'bg-indigo-500/5 border-indigo-500/20 hover:border-indigo-500/50'
-                                 }`}>
-                                    <div className="flex items-center gap-1.5 mb-2">
-                                       <div className={`w-1.5 h-1.5 rounded-full ${dep.latency_ms > 30 ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,1)]'}`} />
-                                       <span className={`text-[8px] font-black uppercase tracking-widest ${dep.call_type === 'SQL' ? 'text-amber-500' : 'text-blue-500'}`}>{dep.call_type} NODE</span>
-                                    </div>
-                                    <span className="text-[11px] font-black text-white uppercase tracking-tight mb-2.5">{dep.target_service}</span>
-                                    <div className="flex items-center gap-2 bg-black/60 px-3 py-1.5 border border-white/5 rounded-xl shadow-inner">
-                                       <Activity className="w-3 h-3 text-emerald-400" />
-                                       <span className="text-[10px] font-mono font-black text-emerald-400">{dep.latency_ms.toFixed(1)}ms</span>
-                                    </div>
+
+                           {/* HUB CONNECTIONS (Left to Center) */}
+                           <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+                              <defs>
+                                 <linearGradient id="ingressFlow" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" stopColor="transparent" />
+                                    <stop offset="50%" stopColor="#6366f1" />
+                                    <stop offset="100%" stopColor="#10b981" />
+                                 </linearGradient>
+                              </defs>
+                              {/* Ingress to Hub Paths */}
+                              <path d="M 280 280 Q 450 280 600 350" fill="none" stroke="url(#ingressFlow)" strokeWidth="2" strokeDasharray="8 8" className="animate-flow-line opacity-30" />
+                              <path d="M 280 480 Q 450 480 600 350" fill="none" stroke="url(#ingressFlow)" strokeWidth="2" strokeDasharray="8 8" className="animate-flow-line opacity-30" />
+                           </svg>
+
+                           {/* LAYER 2: NEXUS CORE (The Process) */}
+                           <div className="relative flex flex-col items-center group/hub">
+                              <div className="absolute -inset-24 bg-emerald-500/5 rounded-full blur-[100px] animate-pulse" />
+                              <div className="w-56 h-56 rounded-full border-[8px] border-emerald-500/10 bg-[#050505] flex flex-col items-center justify-center relative z-20 shadow-[0_0_100px_rgba(16,185,129,0.1)] transition-transform duration-1000 group-hover/hub:scale-110">
+                                 <div className="absolute inset-0 rounded-full border-2 border-dashed border-emerald-500/20 animate-[spin_30s_linear_infinite]" />
+                                 <div className="absolute inset-4 rounded-full border border-emerald-500/10" />
+                                 
+                                 <Activity size={48} className="text-emerald-400 mb-4 drop-shadow-[0_0_15px_rgba(16,185,129,1)]" />
+                                 <div className="text-center px-6">
+                                    <span className="block text-[12px] font-black text-white uppercase tracking-[0.6em]">NEXUS-HUB</span>
+                                    <span className="block text-[8px] font-mono text-emerald-500 mt-2 font-black tracking-[0.2em] border border-emerald-500/20 px-2 py-0.5 rounded-full">v2.4.0-STABLE</span>
                                  </div>
-                                 
-                                 <svg className="absolute top-1/2 left-1/2 -z-10 overflow-visible pointer-events-none" style={{ transform: `scaleX(${x < 0 ? -1 : 1}) rotate(${Math.atan2(y, x)}rad)` }}>
-                                    <path 
-                                       d={`M 0 0 Q ${radiusX/2} ${-y/4} ${radiusX} 0`} 
-                                       fill="none" 
-                                       stroke="url(#modalFlowGrad)" 
-                                       strokeWidth="2.5" 
-                                       strokeDasharray="12 12"
-                                       className="animate-[dash_40s_linear_infinite] opacity-40"
-                                    />
-                                 </svg>
-                                 
-                                 <div className="absolute top-1/2 left-1/2 -z-10 w-3 h-3 bg-emerald-400 rounded-full blur-[4px] animate-flow-pulse shadow-[0_0_25px_rgba(16,185,129,1)]" 
-                                      style={{ 
-                                        animationDuration: `${1.1 + Math.random()}s`,
-                                        animationDelay: `${i * 0.9}s`,
-                                        transform: `rotate(${angle + Math.PI}rad) translateX(${radiusX}px)` 
-                                      }} 
-                                 />
+
+                                 {/* Satellite Status Indicators */}
+                                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-zinc-950 border border-emerald-500/30 px-3 py-1 rounded-full flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest">Processing</span>
+                                 </div>
                               </div>
-                           )
-                        })}
+                           </div>
 
-                        <svg className="absolute invisible">
-                           <defs>
-                              <linearGradient id="modalFlowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                 <stop offset="0%" stopColor="#10b98100" />
-                                 <stop offset="50%" stopColor="#10b98190" />
-                                 <stop offset="100%" stopColor="#10b98100" />
-                              </linearGradient>
-                           </defs>
-                        </svg>
+                           {/* HUB TO EGRESS CONNECTIONS */}
+                           <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+                              <defs>
+                                 <linearGradient id="egressFlow" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" stopColor="#10b981" />
+                                    <stop offset="50%" stopColor="#818cf8" />
+                                    <stop offset="100%" stopColor="transparent" />
+                                 </linearGradient>
+                              </defs>
+                              {/* Hub to Egress Paths */}
+                              <path d="M 900 350 Q 1100 200 1250 200" fill="none" stroke="url(#egressFlow)" strokeWidth="2" strokeDasharray="8 8" className="animate-flow-line opacity-30" />
+                              <path d="M 900 350 Q 1100 350 1250 350" fill="none" stroke="url(#egressFlow)" strokeWidth="2" strokeDasharray="8 8" className="animate-flow-line opacity-30" />
+                              <path d="M 900 350 Q 1100 500 1250 500" fill="none" stroke="url(#egressFlow)" strokeWidth="2" strokeDasharray="8 8" className="animate-flow-line opacity-30" />
+                              <path d="M 900 350 Q 1100 650 1250 650" fill="none" stroke="url(#egressFlow)" strokeWidth="2" strokeDasharray="8 8" className="animate-flow-line opacity-30" />
+                           </svg>
 
-                        <div className="absolute bottom-10 right-10 flex gap-8 items-center bg-black/50 backdrop-blur-3xl border border-white/10 px-10 py-5 rounded-[40px] z-40 shadow-2xl">
-                            <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.8)]" /> <span className="text-[11px] font-black uppercase text-zinc-100 tracking-widest">gRPC</span></div>
-                            <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)]" /> <span className="text-[11px] font-black uppercase text-zinc-100 tracking-widest">SQL</span></div>
-                            <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.8)]" /> <span className="text-[11px] font-black uppercase text-zinc-100 tracking-widest">REST</span></div>
+                           {/* LAYER 3: EGRESS (Dependencies) */}
+                           <div className="flex flex-col gap-6 w-1/4">
+                              <h3 className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.4em] mb-4 text-center">Downstream Systems</h3>
+                              {(latestMetric.dependencies?.length ? latestMetric.dependencies : [
+                                 {target_service: "primary-postgres", call_type: "SQL", latency_ms: 12.4},
+                                 {target_service: "auth-cluster", call_type: "GRPC", latency_ms: 8.2},
+                                 {target_service: "cdn-edge-nodes", call_type: "HTTP", latency_ms: 45.1},
+                                 {target_service: "log-aggregator", call_type: "BUFF", latency_ms: 3.5}
+                              ]).map((dep, i) => (
+                                <div key={i} className={`p-4 rounded-3xl border-2 backdrop-blur-3xl transition-all duration-500 group/node cursor-pointer animate-node-float ${
+                                  settings.themeMode === 'dark' ? 'bg-zinc-950/80 border-white/10 hover:border-emerald-500/50' : 'bg-white border-zinc-200 shadow-md'
+                                }`} style={{ animationDelay: `${i * 0.3}s` }}>
+                                   <div className="flex items-center justify-between mb-2">
+                                      <div className="flex items-center gap-2">
+                                         {dep.call_type === 'SQL' && <Database className="w-3 h-3 text-amber-500" />}
+                                         {dep.call_type === 'GRPC' && <Share2 className="w-3 h-3 text-blue-400" />}
+                                         {(dep.call_type === 'HTTP' || dep.call_type === 'REST') && <Globe className="w-3 h-3 text-emerald-400" />}
+                                         <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">{dep.call_type}</span>
+                                      </div>
+                                      <span className="text-[10px] font-mono font-bold text-emerald-400">{(dep.latency_ms ?? 0).toFixed(1)}ms</span>
+                                   </div>
+                                   <span className="text-[11px] font-black text-zinc-100 uppercase block truncate">{dep.target_service}</span>
+                                   <div className="flex items-center gap-1 mt-2">
+                                      {[1,2,3,4,5].map(dot => (
+                                         <div key={dot} className={`h-1 flex-1 rounded-full ${dot <= 4 ? 'bg-emerald-500/40' : 'bg-zinc-800'}`} />
+                                      ))}
+                                   </div>
+                                </div>
+                              ))}
+                           </div>
+                        </div>
+
+                        <div className="absolute inset-0 pointer-events-none z-30">
+                           <div className="absolute top-[35%] left-[25%] w-2 h-2 bg-indigo-400 rounded-full blur-[2px] shadow-[0_0_15px_rgba(99,102,241,1)] animate-flow-pulse" style={{ transform: 'translate(400px, 80px)' }} />
+                           <div className="absolute top-[65%] left-[25%] w-2 h-2 bg-indigo-400 rounded-full blur-[2px] shadow-[0_0_15px_rgba(99,102,241,1)] animate-flow-pulse" style={{ transform: 'translate(400px, -120px)', animationDelay: '1s' }} />
+                           
+                           <div className="absolute top-[48%] left-[55%] w-2 h-2 bg-emerald-400 rounded-full blur-[2px] shadow-[0_0_15px_rgba(16,185,129,1)] animate-flow-pulse" style={{ transform: 'translate(500px, -200px)', animationDelay: '0.5s' }} />
+                           <div className="absolute top-[48%] left-[55%] w-2 h-2 bg-emerald-400 rounded-full blur-[2px] shadow-[0_0_15px_rgba(16,185,129,1)] animate-flow-pulse" style={{ transform: 'translate(500px, 0px)', animationDelay: '1.2s' }} />
+                           <div className="absolute top-[48%] left-[55%] w-2 h-2 bg-emerald-400 rounded-full blur-[2px] shadow-[0_0_15px_rgba(16,185,129,1)] animate-flow-pulse" style={{ transform: 'translate(500px, 200px)', animationDelay: '2.1s' }} />
+                        </div>
+
+                        <div className="absolute bottom-10 left-10 right-10 flex justify-between items-end z-40">
+                           <div className="flex gap-4 p-4 bg-zinc-950/80 border border-white/5 rounded-3xl backdrop-blur-xl">
+                              <div className="flex flex-col gap-1">
+                                 <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest leading-none">Global Connectivity</span>
+                                 <div className="flex items-center gap-4 mt-2">
+                                    <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-indigo-500" /><span className="text-[9px] text-zinc-100 font-bold uppercase">Requests</span></div>
+                                    <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /><span className="text-[9px] text-zinc-100 font-bold uppercase">Processing</span></div>
+                                    <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-blue-500" /><span className="text-[9px] text-zinc-100 font-bold uppercase">Persistence</span></div>
+                                 </div>
+                              </div>
+                           </div>
+                           <div className="text-right">
+                              <span className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] block mb-1 font-mono italic">Adaptive Mesh Control Active</span>
+                              <div className="flex items-center justify-end gap-3 text-emerald-400">
+                                 <Activity className="w-4 h-4" />
+                                 <span className="text-2xl font-mono font-black tracking-tighter">ZERO LATENCY OFFSET</span>
+                              </div>
+                           </div>
                         </div>
                      </div>
 
@@ -1580,7 +1673,7 @@ export default function Dashboard() {
               {/* Trend View Section */}
               <div className={`${settings.themeMode === 'dark' ? 'bg-black/20 border-white/5' : 'bg-zinc-50 border-zinc-200'} rounded-2xl p-4 border h-[300px]`}>
                 <h4 className={`text-[10px] font-black ${settings.themeMode === 'dark' ? 'text-zinc-600' : 'text-zinc-400'} uppercase tracking-[0.2em] mb-4 flex items-center gap-2 border-b ${settings.themeMode === 'dark' ? 'border-white/5' : 'border-zinc-100'} pb-2`}>
-                  <Activity className="w-3 h-3" /> Historical Trend
+                  <Activity className="w-3 h-3" /> Historical Trend Telemetry
                 </h4>
                 <div className="h-full w-full max-h-[220px]">
                   <ResponsiveContainer width="100%" height="100%">
@@ -1641,12 +1734,12 @@ export default function Dashboard() {
             </div>
 
             <div className="mt-8 flex justify-center">
-              <button
-                onClick={() => setSelectedCard(null)}
-                className={`px-12 py-3 ${settings.themeMode === 'dark' ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-900'} border rounded-full text-sm font-bold uppercase tracking-widest transition-all hover:letter-spacing-[0.2em]`}
-              >
-                Flush & Return
-              </button>
+               <button
+                 onClick={() => setSelectedCard(null)}
+                 className={`px-12 py-3 ${settings.themeMode === 'dark' ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-900'} border rounded-full text-sm font-bold uppercase tracking-widest transition-all active:scale-95`}
+               >
+                 Flush & Return
+               </button>
             </div>
           </div>
         </>
@@ -1818,6 +1911,37 @@ export default function Dashboard() {
                   </button>
                 </label>
                 <p className="text-xs text-zinc-500">Silence the anomaly push notifications entering your priority feed box if testing network loads.</p>
+              </div>
+
+              <div className={`w-full h-[1px] ${settings.themeMode === 'dark' ? 'bg-white/5' : 'bg-zinc-100'} my-2`} />
+
+              <div className="space-y-4">
+                <label className={`text-sm font-semibold ${settings.themeMode === 'dark' ? 'text-zinc-300' : 'text-zinc-700'} flex items-center justify-between`}>
+                  Sonic Alert Protocols
+                  <button
+                    onClick={() => setSettings({ ...settings, soundAlerts: !settings.soundAlerts })}
+                    className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${settings.soundAlerts ? 'bg-indigo-500' : (settings.themeMode === 'dark' ? 'bg-zinc-700' : 'bg-zinc-300')}`}
+                  >
+                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-300 ${settings.soundAlerts ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </button>
+                </label>
+                {settings.soundAlerts && (
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {(['industrial', 'cyber', 'emergency'] as const).map(s => (
+                      <button
+                        key={s}
+                        onClick={() => {
+                          setSettings({ ...settings, alertSound: s });
+                          playAlarmSound(s);
+                        }}
+                        className={`py-2 text-[8px] font-black uppercase tracking-tighter rounded-lg border transition-all ${settings.alertSound === s ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400' : 'bg-black/20 border-white/5 text-zinc-600 hover:text-zinc-400'}`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-zinc-500">Enable synthesized frequency alerts for high-severity incidents.</p>
               </div>
 
               <div className={`w-full h-[1px] ${settings.themeMode === 'dark' ? 'bg-white/5' : 'bg-zinc-100'} my-2`} />

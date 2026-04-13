@@ -23,21 +23,38 @@ body {
 }
 
 @keyframes flow-pulse {
-  0% { transform: rotate(var(--tw-rotate)) translateX(0); opacity: 0; }
+  0% { transform: translate(0, 0); opacity: 0; }
   20% { opacity: 1; }
   80% { opacity: 1; }
-  100% { transform: rotate(var(--tw-rotate)) translateX(150px); opacity: 0; }
+  100% { transform: translate(var(--flow-x, 100px), var(--flow-y, 0)); opacity: 0; }
 }
 
-@keyframes progress-scan {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(400%); }
+@keyframes dash-move {
+  to {
+    stroke-dashoffset: -20;
+  }
 }
 
-.animate-flow-pulse {
-  animation: flow-pulse 2s infinite linear;
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.5; }
+  50% { transform: scale(1.2); opacity: 0.2; }
+  100% { transform: scale(0.8); opacity: 0.5; }
 }
 
-.animate-progress-scan {
-  animation: progress-scan 3s infinite linear;
+@keyframes node-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-flow-line {
+  stroke-dasharray: 5, 5;
+  animation: dash-move 1s linear infinite;
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-node-float {
+  animation: node-float 6s ease-in-out infinite;
 }
