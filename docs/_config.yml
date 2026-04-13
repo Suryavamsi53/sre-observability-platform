@@ -1,0 +1,14 @@
+# Jekyll GitHub Pages Configuration
+
+# Build settings
+markdown: kramdown
+theme: minima
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+
+# Include the Gemfile and the CNAME if using a custom domain
+plugins:
+  - jekyll-github-pages
