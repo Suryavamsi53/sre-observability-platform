@@ -1,0 +1,42 @@
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   README.md
+	modified:   frontend/.next/build-manifest.json
+	modified:   frontend/.next/cache/webpack/client-development/0.pack.gz
+	modified:   frontend/.next/cache/webpack/client-development/1.pack.gz
+	modified:   frontend/.next/cache/webpack/client-development/2.pack.gz
+	modified:   frontend/.next/cache/webpack/client-development/index.pack.gz
+	modified:   frontend/.next/cache/webpack/client-development/index.pack.gz.old
+	modified:   frontend/.next/cache/webpack/server-development/0.pack.gz
+	modified:   frontend/.next/cache/webpack/server-development/1.pack.gz
+	modified:   frontend/.next/cache/webpack/server-development/2.pack.gz
+	modified:   frontend/.next/cache/webpack/server-development/index.pack.gz
+	modified:   frontend/.next/cache/webpack/server-development/index.pack.gz.old
+	modified:   frontend/.next/server/app/page.js
+	modified:   frontend/.next/server/middleware-build-manifest.js
+	modified:   frontend/.next/server/pages-manifest.json
+	modified:   frontend/.next/server/server-reference-manifest.js
+	modified:   frontend/.next/server/server-reference-manifest.json
+	modified:   frontend/.next/server/vendor-chunks/@swc.js
+	modified:   frontend/.next/server/vendor-chunks/next.js
+	modified:   frontend/.next/server/webpack-runtime.js
+	modified:   frontend/.next/static/chunks/app/layout.js
+	modified:   frontend/.next/static/chunks/app/page.js
+	modified:   frontend/.next/static/chunks/webpack.js
+	modified:   frontend/.next/static/css/app/layout.css
+	modified:   frontend/.next/static/development/_buildManifest.js
+	modified:   frontend/.next/trace
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	diff.txt
+	full_diff.txt
+	git_status_out.txt
+	stat.txt
+	status_all.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")

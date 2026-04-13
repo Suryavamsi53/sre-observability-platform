@@ -1,0 +1,18 @@
+  File: README.md
+  Size: 9076      	Blocks: 24         IO Block: 4096   regular file
+Device: 0,43	Inode: 1932548     Links: 1
+Access: (0644/-rw-r--r--)  Uid: ( 1000/suryavamsivaggu)   Gid: ( 1000/suryavamsivaggu)
+Context: unconfined_u:object_r:user_home_t:s0
+Access: 2026-04-04 23:11:08.548875345 +0530
+Modify: 2026-04-04 23:11:08.529874964 +0530
+Change: 2026-04-04 23:11:08.529874964 +0530
+ Birth: 2026-03-24 15:45:01.673520802 +0530
+  File: DOCUMENTATION.md
+  Size: 5729      	Blocks: 16         IO Block: 4096   regular file
+Device: 0,43	Inode: 2464235     Links: 1
+Access: (0644/-rw-r--r--)  Uid: ( 1000/suryavamsivaggu)   Gid: ( 1000/suryavamsivaggu)
+Context: unconfined_u:object_r:user_home_t:s0
+Access: 2026-04-04 23:11:54.637799021 +0530
+Modify: 2026-04-04 23:11:54.624798761 +0530
+Change: 2026-04-04 23:11:54.624798761 +0530
+ Birth: 2026-04-04 07:25:29.808717911 +0530
