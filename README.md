@@ -55,7 +55,7 @@ graph LR
 
 ---
 
-## 💎 Advanced Features (v2.5.0)
+## 💎 Advanced Features (v2.6.0)
 
 ### 🛰 Strategic Topology (Service Mesh Studio)
 A high-definition interactive map of service dependencies.

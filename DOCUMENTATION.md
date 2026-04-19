@@ -106,4 +106,4 @@ The platform supports a 100% responsive **Dark/Light Theme System**:
 
 ---
 
-*Documentation Version 2.5.0 - April 2026*
+*Documentation Version 2.6.0 - April 2026*
